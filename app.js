@@ -9,6 +9,17 @@ const weekDays = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const today = new Date();
 const todayDate = new Date().toISOString().slice(0,10);
 
+const dayWorkoutIndexMap = {1:0, 2:1, 3:2, 4:3, 5:4, 6:5};
+const bibleQuotes = [
+  {text:'Tudo posso naquele que me fortalece.', ref:'Filipenses 4:13'},
+  {text:'Os que esperam no Senhor renovam as suas forças.', ref:'Isaías 40:31'},
+  {text:'Sejam fortes e corajosos.', ref:'Josué 1:9'},
+  {text:'Entrega o teu caminho ao Senhor; confia nele.', ref:'Salmos 37:5'},
+  {text:'O choro pode durar uma noite, mas a alegria vem pela manhã.', ref:'Salmos 30:5'},
+  {text:'O Senhor é a minha força e o meu escudo.', ref:'Salmos 28:7'},
+  {text:'Bem-aventurado o homem que persevera na provação.', ref:'Tiago 1:12'}
+];
+
 const muscleLabels = {
   peito:'Peito', costas:'Costas', ombros:'Ombros', biceps:'Bíceps', triceps:'Tríceps',
   quadriceps:'Quadríceps', posterior:'Posterior', gluteos:'Glúteos', panturrilha:'Panturrilha',
@@ -300,42 +311,48 @@ function render(){
 }
 
 function renderHome(){
-  const nextWorkout = plan[(today.getDay()+6)%6] || plan[0];
+  const dayIndex = dayWorkoutIndexMap[today.getDay()];
+  const todayWorkout = dayIndex !== undefined ? plan[dayIndex] : null;
   const water = getWaterMl(todayDate);
+  const quote = bibleQuotes[today.getDay() % bibleQuotes.length];
+  const weekdayName = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'][today.getDay()];
   $app.innerHTML = `
     <div class="section">
-      <div class="card hero">
-        <h2>Foco no shape,<br/>consistência no processo.</h2>
-        <p>Meta atual: secar barriga, crescer superior e evoluir corrida sem largar a musculação.</p>
-        <div class="pills" style="margin-top:12px">
-          <span class="pill blue">${state.profile.weight.toFixed(2)} kg</span>
-          <span class="pill orange">Cintura ${state.profile.waist} cm</span>
-          <span class="pill green">Água ${water} / ${state.profile.waterGoal} ml</span>
+      <div class="card hero hero-simple">
+        <span class="tagline">Frase do dia · ${weekdayName}</span>
+        <h2>"${quote.text}"</h2>
+        <p>${quote.ref}</p>
+      </div>
+
+      <div class="grid-2 compact-grid">
+        <div class="card stat-card">
+          <span class="label">Treino de hoje</span>
+          <span class="value">${todayWorkout ? todayWorkout.day : 'DOM'}</span>
+          <span class="sub">${todayWorkout ? todayWorkout.title.replace(todayWorkout.day+' - ','') : 'Descanso / mobilidade leve'}</span>
+        </div>
+        <div class="card stat-card">
+          <span class="label">Água hoje</span>
+          <span class="value">${water}</span>
+          <span class="sub">de ${state.profile.waterGoal} ml</span>
         </div>
       </div>
 
-      <div class="grid-2">
-        <div class="card stat-card"><span class="label">Treino de hoje</span><span class="value">${nextWorkout.day}</span><span class="sub">${nextWorkout.title.replace(nextWorkout.day+' - ','')}</span></div>
-        <div class="card stat-card"><span class="label">Próxima ação</span><span class="value">18:15</span><span class="sub">Sair do sofá e ir treinar</span></div>
-      </div>
-
       <div class="card">
-        <div class="section-title"><div><h2>Seu dia</h2><p>Check rápido do que importa.</p></div></div>
+        <div class="section-title"><div><h2>Seu dia</h2><p>Menos informação, mais ação.</p></div></div>
         <div class="btn-row">
-          <button class="btn primary" onclick="changeRoute('workout-detail','${nextWorkout.id}')">Abrir treino de hoje</button>
+          ${todayWorkout ? `<button class="btn primary" onclick="changeRoute('workout-detail','${todayWorkout.id}')">Abrir treino de hoje</button>` : `<button class="btn primary" onclick="changeRoute('library')">Ver biblioteca</button>`}
           <button class="btn outline" onclick="changeRoute('water')">Registrar água</button>
-          <button class="btn outline" onclick="changeRoute('run')">Registrar cardio</button>
         </div>
       </div>
 
       <div class="card">
-        <div class="section-title"><div><h2>Semana</h2><p>Rotina estruturada para iPhone e uso como app.</p></div></div>
+        <div class="section-title"><div><h2>Semana</h2><p>Toque para abrir o treino.</p></div></div>
         <div class="exercise-list">
-          ${plan.slice(0,3).map(day=>{
+          ${plan.map(day=>{
             const summary=getWorkoutSummary(day);
             return `<button class="day-card card tight" style="text-align:left;border:0" onclick="changeRoute('workout-detail','${day.id}')">
               <div class="day-badge"><strong>${day.day}</strong><small>${summary.items.length} ex.</small></div>
-              <div><h3>${day.title}</h3><p>${day.subtitle}<br>${summary.totalSets} séries · ${summary.duration} min</p></div>
+              <div><h3>${day.title}</h3><p>${summary.totalSets} séries · ${summary.duration} min</p></div>
             </button>`;
           }).join('')}
         </div>
@@ -614,99 +631,118 @@ function renderBodyMap(side, muscles){
     <path class="body-outline" d="M47 34c-8 4-14 10-18 19m49-19c8 4 14 10 18 19M39 53c-2 28 1 42 5 48m32-48c2 28-1 42-5 48M49 92c-1 22-2 65-3 97m25-97c1 22 2 65 3 97M45 189l-7 18m38-18 7 18"/>
   </svg>`;
 }
-function partColor(group, muscles){ return muscles.includes(group)?'#4ea2ff':'#d7dde7'; }
-function pushSVG(muscles,size,cls){ return `
+function partColor(group, muscles){ return muscles.includes(group)?'#ff7b2f':'#d9dee7'; }
+function renderThumbDemo(ex){ return renderAnimatedDemo(ex, true); }
+function renderAnimatedDemo(ex, compact=false){
+  const type = ex.demo || 'push';
+  const size = compact ? 68 : 230;
+  const bodyClass = type==='push'?'anim-push':type==='row'?'anim-row':type==='raise'?'anim-raise':type==='squat'?'anim-squat':type==='plank'?'anim-plank':'anim-cardio';
+  if(type==='push') return pressSVG(ex.muscles, size, bodyClass);
+  if(type==='row') return seatedRowSVG(ex.muscles, size, bodyClass);
+  if(type==='raise') return latPulldownSVG(ex.muscles, size, bodyClass);
+  if(type==='squat') return lowerMachineSVG(ex.muscles, size, bodyClass);
+  if(type==='plank') return floorCoreSVG(ex.muscles, size, bodyClass);
+  return cardioMachineSVG(ex.muscles, size, bodyClass);
+}
+function latPulldownSVG(muscles,size,cls){return `
 <svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
-  <g class="anim-float">
-    <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
-    <g>
-      <rect x="58" y="136" width="104" height="10" rx="5" fill="#c5ced8"></rect>
-      <rect x="52" y="128" width="12" height="26" rx="4" fill="#a7b0bb"></rect>
-      <rect x="156" y="128" width="12" height="26" rx="4" fill="#a7b0bb"></rect>
-    </g>
+  <g>
+    <ellipse cx="110" cy="196" rx="72" ry="10" fill="#edf1f5"></ellipse>
+    <rect x="42" y="28" width="12" height="140" rx="5" fill="#aab2bc"></rect>
+    <rect x="42" y="28" width="70" height="8" rx="4" fill="#b7c0ca"></rect>
+    <line x1="85" y1="36" x2="85" y2="66" class="equip"></line>
+    <line x1="65" y1="66" x2="105" y2="66" class="equip"></line>
+    <rect x="108" y="126" width="12" height="34" rx="5" fill="#aab2bc"></rect>
+    <rect x="92" y="158" width="44" height="10" rx="5" fill="#bbc4ce"></rect>
+    <path d="M120 116 L144 166" class="equip"/>
     <g class="body-group">
-      <circle cx="110" cy="78" r="14" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
-      <rect x="90" y="94" width="40" height="44" rx="14" fill="#eef2f7" stroke="#c0c9d3"></rect>
-      <rect x="91" y="98" width="18" height="16" rx="8" fill="${partColor('peito',muscles)}"></rect>
-      <rect x="111" y="98" width="18" height="16" rx="8" fill="${partColor('peito',muscles)}"></rect>
-      <rect x="77" y="92" width="13" height="18" rx="6" fill="${partColor('ombros',muscles)}"></rect>
-      <rect x="130" y="92" width="13" height="18" rx="6" fill="${partColor('ombros',muscles)}"></rect>
-      <g class="arm-l"><path class="person" d="M88 103 L67 124 L53 138"/><circle class="joint" cx="67" cy="124" r="4"/><rect x="58" y="118" width="12" height="18" rx="6" fill="${partColor('triceps',muscles)}"></rect></g>
-      <g class="arm-r"><path class="person" d="M132 103 L153 124 L167 138"/><circle class="joint" cx="153" cy="124" r="4"/><rect x="150" y="118" width="12" height="18" rx="6" fill="${partColor('triceps',muscles)}"></rect></g>
-      <path class="person" d="M100 138 L95 174 L90 198"/><path class="person" d="M120 138 L125 174 L130 198"/>
-      <rect x="92" y="140" width="16" height="30" rx="8" fill="${partColor('quadriceps',muscles)}"></rect>
-      <rect x="112" y="140" width="16" height="30" rx="8" fill="${partColor('quadriceps',muscles)}"></rect>
+      <circle cx="109" cy="79" r="12" fill="#f3dccd" stroke="#c8b1a5" stroke-width="1.8"></circle>
+      <path d="M100 92 Q109 100 118 92 L123 116 Q110 123 97 116 Z" fill="#e5e9ef" stroke="#bfc7d0" stroke-width="1.5"></path>
+      <path d="M100 94 Q109 98 118 94 L121 108 Q109 114 97 108 Z" fill="${muscles.includes('costas')||muscles.includes('peito') ? '#ff7b2f':'#d8dee6'}" opacity=".95"></path>
+      <path class="arm-l" d="M100 96 Q87 88 79 76 Q77 71 80 68 Q85 70 91 79 Q97 87 103 93" fill="${muscles.includes('biceps')||muscles.includes('ombros')?'#ff7b2f':'#f3dccd'}" stroke="#c8b1a5" stroke-width="1"></path>
+      <path class="arm-r" d="M118 96 Q131 88 139 76 Q141 71 138 68 Q133 70 127 79 Q121 87 115 93" fill="${muscles.includes('biceps')||muscles.includes('ombros')?'#ff7b2f':'#f3dccd'}" stroke="#c8b1a5" stroke-width="1"></path>
+      <path d="M97 116 Q96 136 98 157" class="person"></path>
+      <path d="M121 116 Q122 136 120 157" class="person"></path>
+      <path d="M98 157 Q87 152 77 154" class="person"></path>
+      <path d="M120 157 Q132 152 142 154" class="person"></path>
+      <path d="M78 154 Q76 160 78 170" class="person"></path>
+      <path d="M142 154 Q144 160 142 170" class="person"></path>
+      <path d="M97 117 Q90 131 88 146" class="person"></path>
+      <path d="M121 117 Q128 131 130 146" class="person"></path>
     </g>
   </g>
-</svg>`; }
-function rowSVG(muscles,size,cls){ return `
+</svg>`;}
+function pressSVG(muscles,size,cls){return `
 <svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
- <ellipse cx="110" cy="196" rx="78" ry="10" fill="#ecf0f5"></ellipse>
- <rect x="42" y="132" width="80" height="14" rx="7" fill="#c6ced8"></rect>
- <line x1="124" y1="138" x2="185" y2="138" class="equip"/>
- <g class="body-group">
-  <circle cx="78" cy="90" r="14" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
-  <path class="person" d="M90 98 L116 114 L129 138"/>
-  <rect x="94" y="106" width="26" height="18" rx="8" fill="${partColor('costas',muscles)}"></rect>
-  <g class="arm-l"><path class="person" d="M111 111 L144 121 L158 136"/><rect x="128" y="115" width="14" height="16" rx="6" fill="${partColor('biceps',muscles)}"></rect></g>
-  <g class="arm-r"><path class="person" d="M104 118 L137 130 L151 145"/><rect x="123" y="125" width="14" height="16" rx="6" fill="${partColor('biceps',muscles)}"></rect></g>
-  <path class="person" d="M69 104 L61 139 L48 176"/><path class="person" d="M92 115 L82 150 L96 191"/>
- </g>
-</svg>`; }
-function latPullSVG(muscles,size,cls){ return `
+  <ellipse cx="110" cy="196" rx="74" ry="10" fill="#edf1f5"></ellipse>
+  <rect x="55" y="138" width="110" height="10" rx="5" fill="#bec6cf"></rect>
+  <rect x="50" y="130" width="10" height="26" rx="4" fill="#a9b2bd"></rect>
+  <rect x="160" y="130" width="10" height="26" rx="4" fill="#a9b2bd"></rect>
+  <g class="body-group">
+    <circle cx="110" cy="80" r="12" fill="#f3dccd" stroke="#c8b1a5" stroke-width="1.8"></circle>
+    <path d="M97 92 Q110 100 123 92 L130 120 Q110 128 90 120 Z" fill="#e5e9ef" stroke="#bfc7d0" stroke-width="1.5"></path>
+    <path d="M97 94 Q110 101 123 94 L126 108 Q110 115 94 108 Z" fill="${muscles.includes('peito') ? '#ff7b2f':'#d8dee6'}"></path>
+    <path class="arm-l" d="M96 96 Q84 105 73 120 Q68 128 60 140" fill="none" stroke="#c8b1a5" stroke-width="8" stroke-linecap="round"></path>
+    <path class="arm-r" d="M124 96 Q136 105 147 120 Q152 128 160 140" fill="none" stroke="#c8b1a5" stroke-width="8" stroke-linecap="round"></path>
+    <path d="M96 96 Q91 102 86 109" stroke="${muscles.includes('ombros')||muscles.includes('triceps')?'#ff7b2f':'#c8b1a5'}" stroke-width="8" stroke-linecap="round"></path>
+    <path d="M124 96 Q129 102 134 109" stroke="${muscles.includes('ombros')||muscles.includes('triceps')?'#ff7b2f':'#c8b1a5'}" stroke-width="8" stroke-linecap="round"></path>
+    <path d="M95 120 Q92 147 89 176" class="person"></path>
+    <path d="M125 120 Q128 147 131 176" class="person"></path>
+  </g>
+</svg>`;}
+function seatedRowSVG(muscles,size,cls){return `
 <svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
- <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
- <line x1="110" y1="30" x2="110" y2="165" class="equip"></line>
- <line x1="70" y1="38" x2="150" y2="38" class="equip"></line>
- <g class="body-group">
-   <circle cx="110" cy="76" r="14" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
-   <rect x="90" y="92" width="40" height="50" rx="14" fill="#eef2f7" stroke="#c0c9d3"></rect>
-   <rect x="90" y="95" width="40" height="20" rx="10" fill="${partColor('costas',muscles)}"></rect>
-   <g class="arm-l"><path class="person" d="M92 100 L78 75 L70 45"/><rect x="79" y="78" width="14" height="18" rx="6" fill="${partColor('biceps',muscles)}"></rect></g>
-   <g class="arm-r"><path class="person" d="M128 100 L142 75 L150 45"/><rect x="127" y="78" width="14" height="18" rx="6" fill="${partColor('biceps',muscles)}"></rect></g>
-   <path class="person" d="M99 142 L95 177 L92 198"/><path class="person" d="M121 142 L125 177 L128 198"/>
- </g>
-</svg>`; }
-function lowerSVG(muscles,size,cls){ return `
+  <ellipse cx="110" cy="196" rx="76" ry="10" fill="#edf1f5"></ellipse>
+  <rect x="42" y="140" width="84" height="12" rx="6" fill="#c0c8d2"></rect>
+  <line x1="124" y1="145" x2="188" y2="145" class="equip"></line>
+  <g class="body-group">
+    <circle cx="82" cy="92" r="12" fill="#f3dccd" stroke="#c8b1a5" stroke-width="1.8"></circle>
+    <path d="M92 103 Q110 110 125 128" fill="none" stroke="#bfc7d0" stroke-width="16" stroke-linecap="round"></path>
+    <path d="M95 104 Q109 109 121 122" fill="none" stroke="${muscles.includes('costas') ? '#ff7b2f':'#d8dee6'}" stroke-width="12" stroke-linecap="round"></path>
+    <path class="arm-l" d="M107 111 Q124 118 145 128" fill="none" stroke="#c8b1a5" stroke-width="8" stroke-linecap="round"></path>
+    <path class="arm-r" d="M103 118 Q122 127 142 137" fill="none" stroke="#c8b1a5" stroke-width="8" stroke-linecap="round"></path>
+    <path d="M121 120 Q126 131 130 143" stroke="${muscles.includes('biceps')?'#ff7b2f':'#c8b1a5'}" stroke-width="8" stroke-linecap="round"></path>
+    <path d="M70 104 Q61 137 51 176" class="person"></path>
+    <path d="M93 116 Q84 150 98 188" class="person"></path>
+  </g>
+</svg>`;}
+function lowerMachineSVG(muscles,size,cls){return `
 <svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
- <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
- <g class="body-group">
-  <circle cx="110" cy="62" r="14" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
-  <rect x="92" y="78" width="36" height="42" rx="14" fill="#eef2f7" stroke="#c0c9d3"></rect>
-  <rect x="93" y="110" width="34" height="18" rx="8" fill="${partColor('gluteos',muscles)}"></rect>
-  <path class="person" d="M92 87 L77 111"/><path class="person" d="M128 87 L143 111"/>
-  <path class="person" d="M101 120 L88 154 L82 193"/><path class="person" d="M119 120 L132 154 L138 193"/>
-  <rect x="88" y="125" width="16" height="35" rx="8" fill="${partColor('quadriceps',muscles)}"></rect>
-  <rect x="116" y="125" width="16" height="35" rx="8" fill="${partColor('quadriceps',muscles)}"></rect>
-  <rect x="85" y="158" width="14" height="25" rx="8" fill="${partColor('panturrilha',muscles)}"></rect>
-  <rect x="121" y="158" width="14" height="25" rx="8" fill="${partColor('panturrilha',muscles)}"></rect>
- </g>
-</svg>`; }
-function plankSVG(muscles,size,cls){ return `
+  <ellipse cx="110" cy="196" rx="72" ry="10" fill="#edf1f5"></ellipse>
+  <g class="body-group">
+    <circle cx="110" cy="66" r="12" fill="#f3dccd" stroke="#c8b1a5" stroke-width="1.8"></circle>
+    <path d="M98 80 Q110 87 122 80 L127 108 Q110 115 93 108 Z" fill="#e5e9ef" stroke="#bfc7d0" stroke-width="1.5"></path>
+    <path d="M95 109 Q111 118 127 109" fill="none" stroke="${muscles.includes('gluteos') ? '#ff7b2f':'#d8dee6'}" stroke-width="10" stroke-linecap="round"></path>
+    <path d="M95 88 L82 108" class="person"></path>
+    <path d="M125 88 L138 108" class="person"></path>
+    <path d="M100 110 L88 147 L82 188" stroke="${muscles.includes('quadriceps')||muscles.includes('panturrilha') ? '#ff7b2f':'#c8b1a5'}" stroke-width="8" stroke-linecap="round" fill="none"></path>
+    <path d="M120 110 L132 147 L138 188" stroke="${muscles.includes('quadriceps')||muscles.includes('panturrilha') ? '#ff7b2f':'#c8b1a5'}" stroke-width="8" stroke-linecap="round" fill="none"></path>
+  </g>
+</svg>`;}
+function floorCoreSVG(muscles,size,cls){return `
 <svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
- <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
- <g class="body-group">
-   <circle cx="68" cy="122" r="11" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
-   <path class="person" d="M79 126 L118 135 L162 142"/>
-   <rect x="90" y="128" width="25" height="12" rx="6" fill="${partColor('abdomen',muscles)}"></rect>
-   <rect x="115" y="132" width="24" height="12" rx="6" fill="${partColor('lombar',muscles)}"></rect>
-   <path class="person arm-l" d="M82 128 L60 152"/>
-   <path class="person arm-r" d="M89 129 L74 160"/>
-   <path class="person leg-l" d="M162 142 L180 161"/>
-   <path class="person leg-r" d="M153 141 L176 184"/>
- </g>
-</svg>`; }
-function cardioSVG(muscles,size,cls){ return `
+  <ellipse cx="110" cy="196" rx="72" ry="10" fill="#edf1f5"></ellipse>
+  <g class="body-group">
+    <circle cx="70" cy="124" r="11" fill="#f3dccd" stroke="#c8b1a5" stroke-width="1.6"></circle>
+    <path d="M82 127 Q108 136 145 141" fill="none" stroke="#d8dee6" stroke-width="14" stroke-linecap="round"></path>
+    <path d="M92 130 Q110 136 128 138" fill="none" stroke="${muscles.includes('abdomen')||muscles.includes('lombar') ? '#ff7b2f':'#d8dee6'}" stroke-width="10" stroke-linecap="round"></path>
+    <path class="arm-l" d="M81 130 L60 153" class="person"></path>
+    <path class="arm-r" d="M88 131 L74 161" class="person"></path>
+    <path class="leg-l" d="M145 141 L167 159" class="person"></path>
+    <path class="leg-r" d="M137 140 L164 185" class="person"></path>
+  </g>
+</svg>`;}
+function cardioMachineSVG(muscles,size,cls){return `
 <svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
- <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
- <g class="body-group">
-  <circle cx="110" cy="58" r="13" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
-  <path class="person" d="M110 71 L110 111"/>
-  <rect x="95" y="78" width="30" height="18" rx="8" fill="${partColor('cardio',muscles)}"></rect>
-  <path class="person arm-l" d="M110 86 L88 104"/>
-  <path class="person arm-r" d="M110 86 L134 102"/>
-  <path class="person leg-l" d="M110 111 L87 149"/>
-  <path class="person leg-r" d="M110 111 L133 148"/>
- </g>
-</svg>`; }
+  <ellipse cx="110" cy="196" rx="74" ry="10" fill="#edf1f5"></ellipse>
+  <rect x="66" y="154" width="80" height="8" rx="4" fill="#c0c8d2"></rect>
+  <g class="body-group">
+    <circle cx="110" cy="66" r="12" fill="#f3dccd" stroke="#c8b1a5" stroke-width="1.8"></circle>
+    <path d="M100 80 Q110 87 120 80 L123 106 Q110 111 97 106 Z" fill="${muscles.includes('cardio') ? '#ff7b2f':'#d8dee6'}" stroke="#bfc7d0" stroke-width="1.2"></path>
+    <path class="arm-l" d="M104 90 L87 104" class="person"></path>
+    <path class="arm-r" d="M116 90 L132 102" class="person"></path>
+    <path class="leg-l" d="M105 107 L90 147" class="person"></path>
+    <path class="leg-r" d="M116 107 L134 146" class="person"></path>
+  </g>
+</svg>`;}
 render();
