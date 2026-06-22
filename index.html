@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1f16" />
+  <title>Isacc Hybrid</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.json" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-mark" aria-label="Logo Isacc">🐊<span>IL</span></div>
+        <div>
+          <p class="eyebrow">Treino híbrido</p>
+          <h1>Isacc</h1>
+        </div>
+      </div>
+      <button class="icon-btn" id="installBtn" title="Instalar app" hidden>＋</button>
+    </header>
+
+    <main id="app" class="content"></main>
+
+    <nav class="bottom-nav" aria-label="Navegação principal">
+      <button data-route="home" class="nav-btn active"><span>🏠</span>Hoje</button>
+      <button data-route="workouts" class="nav-btn"><span>🏋️</span>Treinos</button>
+      <button data-route="run" class="nav-btn"><span>🏃</span>Corrida</button>
+      <button data-route="measures" class="nav-btn"><span>📏</span>Medidas</button>
+      <button data-route="water" class="nav-btn"><span>💧</span>Água</button>
+      <button data-route="progress" class="nav-btn"><span>📈</span>Evolução</button>
+    </nav>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
