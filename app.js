@@ -1,1385 +1,712 @@
-/*
-  Isacc Hybrid - v2
-  HTML/CSS/JS puro, sem backend por enquanto.
-  Depois podemos conectar no Supabase trocando as funções saveState/loadState.
-*/
 
-const STORE_KEY = 'isacc_hybrid_v2';
-const LEGACY_STORE_KEYS = ['isacc_dino_hybrid_v1'];
-const $app = document.querySelector('#app');
-const $toast = document.querySelector('#toast');
+const $app = document.getElementById('app');
+const $topbar = document.getElementById('topbar');
+const $toast = document.getElementById('toast');
+const $modalRoot = document.getElementById('modalRoot');
+const STORE_KEY = 'isacc_hybrid_v3';
 
-const SUPABASE_CONFIG = {
-  enabled: false,
-  url: '',
-  anonKey: ''
+const weekDays = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const today = new Date();
+const todayDate = new Date().toISOString().slice(0,10);
+
+const muscleLabels = {
+  peito:'Peito', costas:'Costas', ombros:'Ombros', biceps:'Bíceps', triceps:'Tríceps',
+  quadriceps:'Quadríceps', posterior:'Posterior', gluteos:'Glúteos', panturrilha:'Panturrilha',
+  abdomen:'Abdômen', lombar:'Lombar', cardio:'Cardio'
 };
+const equipmentOptions = ['Todos','Máquina','Halter','Cabo','Peso corporal','Smith','Rua/Esteira','Bike','Barra/Máquina','Máquina/Peso corporal','Banco','Barra/Halter'];
+const muscleOptions = ['Todos', ...Object.values(muscleLabels)];
 
-const weekdayMap = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-const shortWeek = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const todayTime = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-const uid = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-const muscleGroups = {
-  peito: 'Peito',
-  costas: 'Costas',
-  ombros: 'Ombros',
-  biceps: 'Bíceps',
-  triceps: 'Tríceps',
-  quadriceps: 'Quadríceps',
-  posterior: 'Posterior',
-  gluteos: 'Glúteos',
-  panturrilha: 'Panturrilha',
-  abdomen: 'Abdômen',
-  lombar: 'Lombar',
-  cardio: 'Cardio'
-};
+function ex(id,name,sets,reps,rest,muscles,equipment='Máquina',demo='push',note=''){
+  return {id,name,sets,reps,rest,muscles,equipment,demo,note};
+}
+function lib(id,name,muscles,equipment,defaultScheme,demo='push',note=''){
+  return {id,name,muscles,equipment,defaultScheme,demo,note};
+}
+const exerciseLibrary = [
+  lib('crucifixo-reto-halter','Crucifixo Reto (Halter)',['peito'],'Halter','3x8–12','push','Isolador de peito.'),
+  lib('supino-declinado-maquina','Supino Declinado (Máquina)',['peito','triceps'],'Máquina','3x8–10','push','Foco em peito inferior.'),
+  lib('supino-reto-maquina','Supino Reto (Máquina)',['peito','triceps','ombros'],'Máquina','4x6–10','push','Mais estável para progredir.'),
+  lib('supino-inclinado-halter','Supino Inclinado (Halter)',['peito','ombros','triceps'],'Halter','3x8–12','push','Peito superior.'),
+  lib('crossover-cabo','Crossover (Cabo)',['peito'],'Cabo','3x12–15','push','Tensão constante.'),
+  lib('puxada-alta-maquina','Puxada Alta na Polia (Máquina)',['costas','biceps'],'Cabo','4x8–12','raise','Costas em V.'),
+  lib('remada-sentada-v','Remada Sentada com Pegada em V (Cabo)',['costas','biceps'],'Cabo','4x7–12','row','Espessura de costas.'),
+  lib('puxada-triangulo','Puxada Alta - Pegada Triângulo',['costas','biceps'],'Cabo','4x8–12','raise','Alternativa confortável.'),
+  lib('pullover-cabo','Pullover no Cabo',['costas'],'Cabo','3x12–15','raise','Isolador de dorsal.'),
+  lib('elevacao-lateral-halter','Elevação Lateral (Halter)',['ombros'],'Halter','3x8–10','raise','Ombro largo.'),
+  lib('face-pull','Face Pull',['ombros','costas'],'Cabo','3x12–20','row','Posterior de ombro e postura.'),
+  lib('desenvolvimento-halter','Desenvolvimento (Halter)',['ombros','triceps'],'Halter','3x8–10','raise','Ombro forte.'),
+  lib('rosca-direta-polia','Rosca Direta na Polia',['biceps'],'Cabo','3x8–12','push','Tensão constante.'),
+  lib('rosca-scott-maquina','Rosca Scott (Máquina)',['biceps'],'Máquina','3x8–12','push','Isola o bíceps.'),
+  lib('rosca-concentrada-halter','Rosca Concentrada (Halter)',['biceps'],'Halter','3x8–12','push','Controle total.'),
+  lib('triceps-corda','Tríceps na Polia com Corda',['triceps'],'Cabo','3x8–12','push','Boa contração.'),
+  lib('extensao-triceps-cabo','Extensão de tríceps acima da cabeça (cabo)',['triceps'],'Cabo','3x8–12','raise','Cabeça longa do tríceps.'),
+  lib('leg-press-45','Leg Press 45º (Máquina)',['quadriceps','gluteos'],'Máquina','4x8–12','squat','Perna com estabilidade.'),
+  lib('cadeira-extensora','Cadeira Extensora (Máquina)',['quadriceps'],'Máquina','3x10–15','squat','Quadríceps isolado.'),
+  lib('mesa-flexora','Mesa Flexora (Máquina)',['posterior'],'Máquina','3x10–15','plank','Posterior.'),
+  lib('cadeira-flexora','Cadeira Flexora (Máquina)',['posterior'],'Máquina','3x10–15','plank','Posterior com controle.'),
+  lib('elevacao-pelvica-barra','Elevação Pélvica (Barra)',['gluteos','posterior'],'Barra/Halter','4x8–12','squat','Glúteo forte.'),
+  lib('cadeira-abdutora','Cadeira Abdutora (Máquina)',['gluteos'],'Máquina','3x12–15','squat','Glúteo médio.'),
+  lib('panturrilha-pe','Elevação de Panturrilha em Pé (Máquina)',['panturrilha'],'Máquina','4x12–20','squat','Panturrilha.'),
+  lib('panturrilha-sentado','Panturrilha Sentado',['panturrilha'],'Máquina','4x12–20','squat','Panturrilha.'),
+  lib('flexao-solo','Flexão no Solo',['peito','triceps','ombros'],'Peso corporal','4x até perto da falha','push','Calistenia base.'),
+  lib('barra-negativa','Barra Negativa',['costas','biceps'],'Peso corporal','4x2–3','raise','Descer controlado.'),
+  lib('dead-hang','Dead Hang',['costas'],'Peso corporal','3x20–30s','raise','Pendurar na barra.'),
+  lib('prancha','Prancha',['abdomen'],'Peso corporal','3x30–45s','plank','Core firme.'),
+  lib('dead-bug','Dead Bug',['abdomen','lombar'],'Peso corporal','3x10 cada lado','plank','Estabilidade.'),
+  lib('bird-dog','Bird Dog',['lombar','gluteos'],'Peso corporal','3x10 cada lado','plank','Lombar estável.'),
+  lib('caminhada-z2','Caminhada Z2',['cardio'],'Rua/Esteira','30 min','cardio','Ritmo conversável.'),
+  lib('intervalado-leve','Intervalado Leve',['cardio'],'Rua/Esteira','6x (1 min trote / 2 min caminhada)','cardio','Cardio progressivo.'),
+  lib('simulador-escadas','Simulador de Escadas',['cardio','quadriceps','gluteos','panturrilha'],'Máquina','10–20 min','cardio','Usar com moderação.'),
+];
 
 const plan = [
-  {
-    id: 'seg-reset',
-    day: 1,
-    title: 'Reset + Cardio leve + Lombar',
-    type: 'Cardio/Mobilidade',
-    duration: '35–45 min',
-    intensity: 'Leve',
-    goal: 'Não falhar na segunda. Quebrar o ciclo sofá + celular + treino tarde.',
-    notes: ['Caminhada Z2: ritmo em que dá para conversar.', 'Sem treino pesado. Hoje é para vencer a preguiça e cuidar da lombar.'],
-    exercises: [
-      ex('walk-z2', 'Caminhada leve/moderada', '30 min', 'Z2 / conversa normal', 'Esteira ou rua', ['cardio']),
-      ex('cat-camel', 'Cat Camel', '2x10', 'controle', 'Mobilidade de coluna', ['lombar']),
-      ex('dead-bug', 'Dead Bug', '2x10 cada lado', 'controle', 'Abdômen sem forçar lombar', ['abdomen', 'lombar']),
-      ex('bird-dog', 'Bird Dog', '2x10 cada lado', 'controle', 'Estabilidade lombar', ['lombar', 'gluteos']),
-      ex('glute-bridge', 'Ponte de Glúteo', '2x15', 'leve', 'Ativar glúteo', ['gluteos', 'lombar']),
-      ex('plank', 'Prancha', '2–3x30s', 'controle', 'Core firme', ['abdomen'])
-    ]
-  },
-  {
-    id: 'ter-superior-a',
-    day: 2,
-    title: 'Superior A Pesado',
-    type: 'Musculação',
-    duration: '60–75 min',
-    intensity: 'Pesado controlado',
-    goal: 'Peito, costas, ombro e braço com progressão de carga.',
-    notes: ['Descanso 1:30–2:00 nos principais.', 'Termine com 1–2 repetições sobrando nos compostos.'],
-    exercises: [
-      ex('supino-maquina-halter', 'Supino máquina ou halter', '4x6–10', 'RIR 1–2', 'Principal de peito. Aumentar carga quando fechar 10/10/10/10.', ['peito', 'triceps', 'ombros']),
-      ex('puxada-alta-aberta', 'Puxada alta aberta', '4x8–10', 'RIR 1–2', 'Costas em V. Puxa com cotovelo, não com bíceps.', ['costas', 'biceps']),
-      ex('remada-sentada', 'Remada sentada máquina/cabo', '3x8–12', 'RIR 1–2', 'Escápula firme. Evitar jogar lombar.', ['costas', 'biceps']),
-      ex('desenvolvimento-sentado', 'Desenvolvimento de ombro sentado', '3x8–10', 'RIR 1–2', 'Ombro forte sem roubar na lombar.', ['ombros', 'triceps']),
-      ex('supino-inclinado', 'Supino inclinado halter/máquina', '3x8–12', 'RIR 1–2', 'Parte superior do peito.', ['peito', 'ombros', 'triceps']),
-      ex('elevacao-lateral', 'Elevação lateral', '4x12–20', 'quase falha', 'Controle total. Esse é shape de ombro largo.', ['ombros']),
-      ex('triceps-polia', 'Tríceps na polia', '3x10–12', 'quase falha', 'Cotovelos fixos.', ['triceps']),
-      ex('rosca-direta-polia', 'Rosca direta na polia', '3x10–12', 'quase falha', 'Braço cheio, sem balançar.', ['biceps']),
-      ex('barra-tecnica', 'Barra fixa técnica/negativa', '3 séries', 'técnica', '1 barra limpa se sair + negativas descendo 4–5s.', ['costas', 'biceps'])
-    ]
-  },
-  {
-    id: 'qua-inferior-a',
-    day: 3,
-    title: 'Inferior A Controlado',
-    type: 'Musculação',
-    duration: '55–65 min',
-    intensity: 'Moderado/Pesado',
-    goal: 'Perna completa sem judiar da lombar/ciático.',
-    notes: ['Sem stiff pesado na primeira semana.', 'Dor lombar acima de 4/10: reduzir carga ou trocar exercício.'],
-    exercises: [
-      ex('leg-press', 'Leg Press', '4x8–12', 'RIR 1–2', 'Pés firmes, amplitude segura, lombar colada.', ['quadriceps', 'gluteos']),
-      ex('cadeira-extensora', 'Cadeira Extensora', '3x10–15', 'quase falha', 'Segura 1s em cima.', ['quadriceps']),
-      ex('mesa-flexora', 'Mesa/Cadeira Flexora', '4x10–12', 'RIR 1–2', 'Posterior forte protege joelho e lombar.', ['posterior']),
-      ex('elevacao-pelvica', 'Elevação Pélvica', '4x8–12', 'RIR 1–2', 'Glúteo forte e estabilidade pélvica.', ['gluteos', 'posterior']),
-      ex('cadeira-abdutora', 'Cadeira Abdutora', '3x12–15', 'quase falha', 'Glúteo médio para estabilidade.', ['gluteos']),
-      ex('panturrilha', 'Panturrilha em pé ou sentado', '5x10–15', 'quase falha', 'Pausa embaixo e em cima.', ['panturrilha']),
-      ex('prancha', 'Prancha', '3x30–40s', 'controle', 'Core anti-lombar.', ['abdomen']),
-      ex('dead-bug-core', 'Dead Bug', '3x10 cada lado', 'controle', 'Core sem flexionar lombar.', ['abdomen', 'lombar'])
-    ]
-  },
-  {
-    id: 'qui-corrida-calistenia',
-    day: 4,
-    title: 'Corrida Intervalada + Calistenia',
-    type: 'Híbrido',
-    duration: '45–55 min',
-    intensity: 'Moderado',
-    goal: 'Melhorar corrida, barra e flexão sem matar hipertrofia.',
-    notes: ['Sem frequencímetro: usa respiração. Trote moderado, caminhada para recuperar.', 'Calistenia é técnica, não é para destruir cotovelo/ombro.'],
-    exercises: [
-      ex('aquecimento-caminhada', 'Aquecimento caminhando', '5 min', 'leve', 'Preparar corpo para correr.', ['cardio']),
-      ex('intervalado-1-2', 'Intervalado: 1 min trote + 2 min caminhada', '6x', 'Z2–Z3', 'Trote moderado, sem sprint.', ['cardio']),
-      ex('volta-calma', 'Volta à calma caminhando', '5 min', 'leve', 'Desacelerar.', ['cardio']),
-      ex('flexao-solo', 'Flexão no solo', '4 séries', '2 reps antes da falha', 'Hoje sua base é 12 reps. Registrar reps limpas.', ['peito', 'triceps', 'ombros']),
-      ex('barra-negativa', 'Barra negativa', '4x2–3', 'controle', 'Sobe com apoio e desce em 4–5s.', ['costas', 'biceps']),
-      ex('dead-hang', 'Dead Hang pendurado', '3x20–30s', 'controle', 'Força de pegada e ombro saudável.', ['costas', 'biceps']),
-      ex('prancha-calistenia', 'Prancha', '3x30s', 'controle', 'Abdômen funcional.', ['abdomen'])
-    ]
-  },
-  {
-    id: 'sex-superior-b',
-    day: 5,
-    title: 'Superior B Volume/Shape',
-    type: 'Musculação',
-    duration: '60–70 min',
-    intensity: 'Volume',
-    goal: 'Ombro largo, peito cheio, costas em V e braço.',
-    notes: ['Mais volume, menos ego.', 'Elevação lateral é prioridade visual.'],
-    exercises: [
-      ex('supino-inclinado-b', 'Supino inclinado halter/máquina', '4x8–12', 'RIR 1–2', 'Peito superior.', ['peito', 'ombros', 'triceps']),
-      ex('puxada-triangulo', 'Puxada alta pegada triângulo/neutra', '4x10–12', 'RIR 1–2', 'Foco em dorsal.', ['costas', 'biceps']),
-      ex('remada-baixa', 'Remada baixa', '3x10–12', 'RIR 1–2', 'Costas densas.', ['costas', 'biceps']),
-      ex('voador-crossover', 'Crucifixo no voador ou crossover', '3x12–15', 'quase falha', 'Peito cheio sem forçar articulação.', ['peito']),
-      ex('elevacao-lateral-b', 'Elevação lateral', '5x12–20', 'quase falha', 'Ombro 3D.', ['ombros']),
-      ex('face-pull', 'Face pull ou crucifixo inverso', '3x12–20', 'controle', 'Postura, posterior de ombro.', ['ombros', 'costas']),
-      ex('rosca-scott-alternada', 'Rosca alternada ou Scott', '3x10–12', 'quase falha', 'Bíceps.', ['biceps']),
-      ex('triceps-corda', 'Tríceps corda', '3x10–12', 'quase falha', 'Tríceps cheio.', ['triceps']),
-      ex('abdominal-maquina', 'Abdominal máquina/crunch', '3x12–15', 'controle', 'Abdômen com carga.', ['abdomen'])
-    ]
-  },
-  {
-    id: 'sab-inferior-b',
-    day: 6,
-    title: 'Inferior B + Cardio leve',
-    type: 'Musculação/Cardio',
-    duration: '60–80 min',
-    intensity: 'Moderado/Pesado',
-    goal: 'Perna, glúteo e gasto calórico sem virar sorvete.',
-    notes: ['Se a lombar reclamar no hack/smith, troca por leg press.', 'Cardio pós-treino leve, não corrida forte.'],
-    exercises: [
-      ex('hack-smith', 'Hack machine ou agachamento no Smith', '3x8–10', 'RIR 1–2', 'Se incomodar, trocar por leg press.', ['quadriceps', 'gluteos']),
-      ex('bulgaro-passada', 'Afundo búlgaro ou passada no Smith', '3x8–10 cada perna', 'RIR 1–2', 'Controle e equilíbrio.', ['quadriceps', 'gluteos']),
-      ex('cadeira-flexora-b', 'Cadeira Flexora', '3x10–15', 'quase falha', 'Posterior.', ['posterior']),
-      ex('cadeira-extensora-b', 'Cadeira Extensora', '3x12–15', 'quase falha', 'Quadríceps.', ['quadriceps']),
-      ex('elevacao-pelvica-b', 'Elevação Pélvica', '3x10–12', 'RIR 1–2', 'Glúteo.', ['gluteos', 'posterior']),
-      ex('panturrilha-b', 'Panturrilha', '5x12–20', 'quase falha', 'Pausa no alongamento.', ['panturrilha']),
-      ex('cardio-pos-perna', 'Cardio leve pós-treino', '20 min', 'leve', 'Caminhada inclinada ou bike leve.', ['cardio'])
-    ]
-  },
-  {
-    id: 'dom-descanso',
-    day: 0,
-    title: 'Descanso total',
-    type: 'Recuperação',
-    duration: 'Livre',
-    intensity: 'Leve',
-    goal: 'Recuperar, dormir melhor, preparar a próxima semana.',
-    notes: ['Pode caminhar leve se quiser.', 'Sem culpa. O descanso também constrói shape.'],
-    exercises: [
-      ex('caminhada-opcional', 'Caminhada opcional', '20–40 min', 'leve', 'Só se estiver com vontade.', ['cardio']),
-      ex('mobilidade-leve', 'Mobilidade leve', '8–10 min', 'leve', 'Soltar lombar/quadril.', ['lombar'])
-    ]
-  }
+  {id:'seg',day:'SEG',title:'Segunda - Superiores',subtitle:'Peito, costas, ombro e braço',exercises:[
+    ex('crucifixo-reto-halter','Crucifixo Reto (Halter)',3,'8–12','2 min',['peito'],'Halter','push'),
+    ex('supino-declinado-maquina','Supino Declinado (Máquina)',3,'8–10','1 min 30 s',['peito','triceps'],'Máquina','push'),
+    ex('puxada-alta-maquina','Puxada Alta na Polia (Máquina)',4,'8–12','1 min',['costas','biceps'],'Cabo','raise'),
+    ex('remada-sentada-v','Remada Sentada com Pegada em V (Cabo)',4,'7–12','1 min',['costas','biceps'],'Cabo','row'),
+    ex('elevacao-lateral-halter','Elevação Lateral (Halter)',3,'8–10','1 min',['ombros'],'Halter','raise'),
+    ex('rosca-direta-polia','Rosca Direta na Polia',3,'8–12','1 min',['biceps'],'Cabo','push'),
+    ex('triceps-corda','Tríceps na Polia com Corda',3,'8–12','1 min',['triceps'],'Cabo','push')
+  ]},
+  {id:'ter',day:'TER',title:'Terça - Inferiores',subtitle:'Quadríceps, posterior, glúteo e panturrilha',exercises:[
+    ex('leg-press-45','Leg Press 45º (Máquina)',4,'8–12','1 min 30 s',['quadriceps','gluteos'],'Máquina','squat'),
+    ex('cadeira-extensora','Cadeira Extensora (Máquina)',3,'10–15','1 min',['quadriceps'],'Máquina','squat'),
+    ex('mesa-flexora','Mesa Flexora (Máquina)',3,'10–15','1 min',['posterior'],'Máquina','plank'),
+    ex('elevacao-pelvica-barra','Elevação Pélvica (Barra)',4,'8–12','1 min 30 s',['gluteos','posterior'],'Barra/Halter','squat'),
+    ex('cadeira-abdutora','Cadeira Abdutora (Máquina)',3,'12–15','1 min',['gluteos'],'Máquina','squat'),
+    ex('panturrilha-pe','Elevação de Panturrilha em Pé (Máquina)',4,'12–20','45 s',['panturrilha'],'Máquina','squat')
+  ]},
+  {id:'qua',day:'QUA',title:'Quarta - Cardio + Core',subtitle:'Condicionamento e estabilidade',exercises:[
+    ex('caminhada-z2','Caminhada Z2',1,'30 min','—',['cardio'],'Rua/Esteira','cardio'),
+    ex('prancha','Prancha',3,'30–45 s','45 s',['abdomen'],'Peso corporal','plank'),
+    ex('dead-bug','Dead Bug',3,'10 cada lado','45 s',['abdomen','lombar'],'Peso corporal','plank'),
+    ex('bird-dog','Bird Dog',3,'10 cada lado','45 s',['lombar','gluteos'],'Peso corporal','plank')
+  ]},
+  {id:'qui',day:'QUI',title:'Quinta - Superiores 2',subtitle:'Costas em V, peito e ombro',exercises:[
+    ex('supino-inclinado-halter','Supino Inclinado (Halter)',3,'8–12','1 min 30 s',['peito','ombros','triceps'],'Halter','push'),
+    ex('puxada-triangulo','Puxada Alta - Pegada Triângulo',4,'8–12','1 min',['costas','biceps'],'Cabo','raise'),
+    ex('pullover-cabo','Pullover no Cabo',3,'12–15','1 min',['costas'],'Cabo','raise'),
+    ex('face-pull','Face Pull',3,'12–20','1 min',['ombros','costas'],'Cabo','row'),
+    ex('rosca-scott-maquina','Rosca Scott (Máquina)',3,'8–12','1 min',['biceps'],'Máquina','push'),
+    ex('extensao-triceps-cabo','Extensão de tríceps acima da cabeça (cabo)',3,'8–12','1 min',['triceps'],'Cabo','raise')
+  ]},
+  {id:'sex',day:'SEX',title:'Sexta - Calistenia + Corrida',subtitle:'Barra, flexão e cardio',exercises:[
+    ex('flexao-solo','Flexão no Solo',4,'até perto da falha','1 min',['peito','triceps','ombros'],'Peso corporal','push'),
+    ex('barra-negativa','Barra Negativa',4,'2–3','1 min',['costas','biceps'],'Peso corporal','raise'),
+    ex('dead-hang','Dead Hang',3,'20–30 s','45 s',['costas'],'Peso corporal','raise'),
+    ex('intervalado-leve','Intervalado Leve',1,'6x 1 min / 2 min','—',['cardio'],'Rua/Esteira','cardio')
+  ]},
+  {id:'sab',day:'SÁB',title:'Sábado - Inferiores 2',subtitle:'Perna completa + glúteo',exercises:[
+    ex('leg-press-45','Leg Press 45º (Máquina)',4,'8–12','1 min 30 s',['quadriceps','gluteos'],'Máquina','squat'),
+    ex('cadeira-flexora','Cadeira Flexora (Máquina)',3,'10–15','1 min',['posterior'],'Máquina','plank'),
+    ex('elevacao-pelvica-barra','Elevação Pélvica (Barra)',4,'8–12','1 min 30 s',['gluteos','posterior'],'Barra/Halter','squat'),
+    ex('cadeira-abdutora','Cadeira Abdutora (Máquina)',3,'12–15','1 min',['gluteos'],'Máquina','squat'),
+    ex('panturrilha-sentado','Panturrilha Sentado',4,'12–20','45 s',['panturrilha'],'Máquina','squat')
+  ]},
 ];
-
-
-const exerciseLibrary = [
-  lib('supino-maquina', 'Supino Máquina', ['peito', 'triceps', 'ombros'], 'Máquina', '4x6–10', 'Peito cheio com controle e segurança.'),
-  lib('supino-halter-reto', 'Supino Reto com Halteres', ['peito', 'triceps', 'ombros'], 'Halter', '4x8–12', 'Mais liberdade de movimento e amplitude.'),
-  lib('supino-inclinado-halter', 'Supino Inclinado com Halteres', ['peito', 'ombros', 'triceps'], 'Halter', '4x8–12', 'Prioridade para peito superior.'),
-  lib('supino-inclinado-maquina', 'Supino Inclinado Máquina', ['peito', 'ombros', 'triceps'], 'Máquina', '4x8–12', 'Estável para progredir carga.'),
-  lib('crucifixo-voador', 'Crucifixo no Voador', ['peito'], 'Máquina', '3x12–15', 'Isolador de peito sem exigir lombar.'),
-  lib('crossover-cabo', 'Crossover no Cabo', ['peito'], 'Cabo', '3x12–15', 'Tensão constante no peito.'),
-  lib('flexao-solo-lib', 'Flexão no Solo', ['peito', 'triceps', 'ombros'], 'Peso corporal', '4 séries', 'Calistenia base para peito e tríceps.'),
-  lib('supino-declinado-maquina', 'Supino Declinado Máquina', ['peito', 'triceps'], 'Máquina', '3x8–12', 'Variação estável para peito.'),
-
-  lib('puxada-alta-aberta-lib', 'Puxada Alta Aberta', ['costas', 'biceps'], 'Cabo', '4x8–12', 'Dorsal para costas em V.'),
-  lib('puxada-neutra', 'Puxada Alta Pegada Neutra', ['costas', 'biceps'], 'Cabo', '4x10–12', 'Boa opção para ombro mais confortável.'),
-  lib('puxada-triangulo-lib', 'Puxada Alta Triângulo', ['costas', 'biceps'], 'Cabo', '4x10–12', 'Mais controle na dorsal.'),
-  lib('remada-sentada-lib', 'Remada Sentada Cabo/Máquina', ['costas', 'biceps'], 'Cabo/Máquina', '3x8–12', 'Costas densas sem roubar na lombar.'),
-  lib('remada-baixa-lib', 'Remada Baixa', ['costas', 'biceps'], 'Cabo', '3x10–12', 'Espessura de costas.'),
-  lib('remada-maquina-peito-apoiado', 'Remada Máquina com Peito Apoiado', ['costas', 'biceps'], 'Máquina', '3x8–12', 'Excelente quando a lombar está sensível.'),
-  lib('pullover-cabo', 'Pullover no Cabo', ['costas'], 'Cabo', '3x12–15', 'Isolador de dorsal.'),
-  lib('barra-fixa-assistida', 'Barra Fixa Assistida', ['costas', 'biceps'], 'Máquina/Peso corporal', '3x6–10', 'Progressão para barras livres.'),
-  lib('barra-negativa-lib', 'Barra Negativa', ['costas', 'biceps'], 'Peso corporal', '4x2–3', 'Desce devagar para ganhar força.'),
-
-  lib('desenvolvimento-maquina', 'Desenvolvimento Máquina', ['ombros', 'triceps'], 'Máquina', '3x8–10', 'Ombro forte com estabilidade.'),
-  lib('desenvolvimento-halter', 'Desenvolvimento com Halteres', ['ombros', 'triceps'], 'Halter', '3x8–12', 'Mais controle e amplitude.'),
-  lib('elevacao-lateral-halter', 'Elevação Lateral Halter', ['ombros'], 'Halter', '4x12–20', 'Prioridade para ombro largo.'),
-  lib('elevacao-lateral-cabo', 'Elevação Lateral no Cabo', ['ombros'], 'Cabo', '4x12–20', 'Tensão constante no deltóide lateral.'),
-  lib('face-pull-lib', 'Face Pull', ['ombros', 'costas'], 'Cabo', '3x12–20', 'Postura e posterior de ombro.'),
-  lib('crucifixo-inverso', 'Crucifixo Inverso', ['ombros', 'costas'], 'Máquina/Halter', '3x12–20', 'Posterior de ombro.'),
-
-  lib('rosca-direta-polia-lib', 'Rosca Direta na Polia', ['biceps'], 'Cabo', '3x10–12', 'Bíceps com tensão constante.'),
-  lib('rosca-scott-maquina', 'Rosca Scott Máquina', ['biceps'], 'Máquina', '3x10–12', 'Isola o bíceps e reduz roubo.'),
-  lib('rosca-alternada', 'Rosca Alternada', ['biceps'], 'Halter', '3x10–12', 'Bíceps com controle.'),
-  lib('rosca-martelo', 'Rosca Martelo', ['biceps'], 'Halter', '3x10–12', 'Braquial/antebraço, braço mais cheio.'),
-  lib('rosca-concentrada', 'Rosca Concentrada', ['biceps'], 'Halter', '3x10–12', 'Isolador para controle.'),
-
-  lib('triceps-polia-barra', 'Tríceps Polia Barra', ['triceps'], 'Cabo', '3x10–12', 'Tríceps pesado e simples.'),
-  lib('triceps-corda-lib', 'Tríceps Corda', ['triceps'], 'Cabo', '3x10–12', 'Boa contração no final.'),
-  lib('triceps-testa', 'Tríceps Testa', ['triceps'], 'Barra/Halter', '3x10–12', 'Cuidado com cotovelo.'),
-  lib('triceps-frances-cabo', 'Extensão de Tríceps Acima da Cabeça', ['triceps'], 'Cabo', '3x10–15', 'Cabeça longa do tríceps.'),
-  lib('mergulho-maquina', 'Mergulho Máquina', ['triceps', 'peito'], 'Máquina', '3x8–12', 'Tríceps e peito inferior.'),
-
-  lib('leg-press-lib', 'Leg Press', ['quadriceps', 'gluteos'], 'Máquina', '4x8–12', 'Perna pesada com controle de lombar.'),
-  lib('cadeira-extensora-lib', 'Cadeira Extensora', ['quadriceps'], 'Máquina', '3x10–15', 'Quadríceps isolado.'),
-  lib('hack-machine', 'Hack Machine', ['quadriceps', 'gluteos'], 'Máquina', '3x8–10', 'Agachamento guiado.'),
-  lib('agachamento-smith', 'Agachamento no Smith', ['quadriceps', 'gluteos'], 'Smith', '3x8–10', 'Controle e estabilidade.'),
-  lib('afundo-bulgaro', 'Afundo Búlgaro', ['quadriceps', 'gluteos'], 'Halter/Smith', '3x8–10 cada perna', 'Unilateral forte.'),
-  lib('passada-smith', 'Passada no Smith', ['quadriceps', 'gluteos'], 'Smith', '3x8–10 cada perna', 'Boa alternativa ao búlgaro.'),
-
-  lib('mesa-flexora-lib', 'Mesa Flexora', ['posterior'], 'Máquina', '4x10–12', 'Posterior de coxa.'),
-  lib('cadeira-flexora-lib', 'Cadeira Flexora', ['posterior'], 'Máquina', '3x10–15', 'Posterior com controle.'),
-  lib('stiff-leve', 'Stiff/Romeno Leve', ['posterior', 'gluteos', 'lombar'], 'Barra/Halter', '3x8–10', 'Só se lombar estiver 100%.'),
-  lib('elevacao-pelvica-lib', 'Elevação Pélvica', ['gluteos', 'posterior'], 'Barra/Máquina', '4x8–12', 'Glúteo forte e estabilidade.'),
-  lib('cadeira-abdutora-lib', 'Cadeira Abdutora', ['gluteos'], 'Máquina', '3x12–20', 'Glúteo médio para estabilidade.'),
-  lib('glute-kickback-cabo', 'Coice no Cabo', ['gluteos'], 'Cabo', '3x12–15', 'Glúteo isolado.'),
-
-  lib('panturrilha-em-pe', 'Panturrilha em Pé', ['panturrilha'], 'Máquina', '5x10–15', 'Pausa em cima e embaixo.'),
-  lib('panturrilha-sentado', 'Panturrilha Sentado', ['panturrilha'], 'Máquina', '5x12–20', 'Sóleo e resistência.'),
-  lib('panturrilha-unilateral', 'Panturrilha Unilateral', ['panturrilha'], 'Máquina/Halter', '4x12–20 cada', 'Corrige diferença entre lados.'),
-
-  lib('prancha-lib', 'Prancha', ['abdomen'], 'Peso corporal', '3x30–45s', 'Core firme.'),
-  lib('abdominal-maquina-lib', 'Abdominal Máquina', ['abdomen'], 'Máquina', '3x12–15', 'Abdômen com carga.'),
-  lib('crunch-solo', 'Crunch no Solo', ['abdomen'], 'Peso corporal', '3x15–20', 'Simples e seguro.'),
-  lib('dead-bug-lib', 'Dead Bug', ['abdomen', 'lombar'], 'Peso corporal', '3x10 cada lado', 'Core sem forçar lombar.'),
-  lib('bird-dog-lib', 'Bird Dog', ['lombar', 'gluteos'], 'Peso corporal', '3x10 cada lado', 'Estabilidade lombar.'),
-  lib('hiperextensao-lombar', 'Hiperextensão Lombar', ['lombar', 'gluteos', 'posterior'], 'Banco', '3x10–12', 'Só leve e controlado.'),
-
-  lib('caminhada-z2', 'Caminhada Z2', ['cardio'], 'Rua/Esteira', '30 min', 'Ritmo conversável.'),
-  lib('bike-leve', 'Bike Leve', ['cardio'], 'Bike', '20–30 min', 'Cardio sem impacto.'),
-  lib('esteira-inclinada', 'Esteira Inclinada', ['cardio', 'gluteos', 'panturrilha'], 'Esteira', '20–30 min', 'Queima boa sem precisar correr forte.'),
-  lib('intervalado-leve', 'Intervalado Leve', ['cardio'], 'Rua/Esteira', '6x 1 min/2 min', 'Trote + caminhada.'),
-  lib('simulador-escadas', 'Simulador de Escadas', ['cardio', 'gluteos', 'quadriceps', 'panturrilha'], 'Máquina', '10–20 min', 'Forte, usar com cautela no déficit.')
-];
-
-function lib(id, name, muscles, equipment, target, note) {
-  return { id, name, muscles, equipment, target, intensity: 'Alternativa', note };
-}
-
-function ex(id, name, target, intensity, note, muscles) {
-  return { id, name, target, intensity, note, muscles, equipment: 'Plano' };
-}
 
 const defaultState = {
-  profile: {
-    name: 'Isacc Lopes', initials: 'IL', age: 27, height: 1.85, weight: 95.75,
-    goal: 'Perder gordura, ganhar superior e melhorar corrida',
-    sleepTarget: '22:30',
-    gymWindow: '18:15–20:00'
-  },
-  settings: {
-    waterGoalMl: 2500,
-    glassMl: 250,
-    bottleMl: 500,
-    remindersEnabled: false,
-    walkReminderTimes: ['09:00', '11:00', '14:00', '16:00'],
-    creatineEnabled: true,
-    creatineDose: '3–5g/dia'
-  },
-  checklists: {},
-  water: {},
-  bodyMeasures: [
-    { date: '2026-05-27', weight: 95.75, neck: 41, shoulder: 132, chest: 112, waist: 96, armL: 40, armR: 40, forearmL: 31, forearmR: 31, abdomenUpper: 41, abdomenLower: 110, thighL: 66, thighR: 66, calfL: 43, calfR: 43, hip: 107 }
-  ],
-  workoutLogs: [],
-  runLogs: [],
-  exerciseOverrides: {},
-  notes: [],
-  appVersion: '1.0.0'
+  profile:{name:'Isacc Lopes', initials:'IL', weight:95.75, waist:96, waterGoal:2500, glassMl:250, bottleMl:500},
+  waterLog:{},
+  measures:[{date:'2026-05-27', weight:95.75, waist:96, chest:112, shoulder:132, arm:40, thigh:66, calf:43, hip:107}],
+  runLog:[],
+  workoutLog:[],
+  overrides:{},
+  libraryFilters:{search:'', muscle:'Todos', equipment:'Todos'},
+  route:'home'
 };
 
 let state = loadState();
-let currentRoute = 'home';
-let deferredInstallPrompt = null;
-let lastReminderSent = {};
+let currentRoute = state.route || 'home';
+let routeMeta = null;
 
-function loadState() {
-  try {
-    let raw = localStorage.getItem(STORE_KEY);
-    if (!raw) {
-      const legacyKey = LEGACY_STORE_KEYS.find(key => localStorage.getItem(key));
-      raw = legacyKey ? localStorage.getItem(legacyKey) : null;
-    }
-    if (!raw) return structuredClone(defaultState);
-    const saved = JSON.parse(raw);
-    return mergeDeep(structuredClone(defaultState), saved);
-  } catch (error) {
-    console.error(error);
-    return structuredClone(defaultState);
-  }
+function loadState(){
+  try{const raw = localStorage.getItem(STORE_KEY); return raw ? {...structuredClone(defaultState), ...JSON.parse(raw)} : structuredClone(defaultState);}catch(e){return structuredClone(defaultState)}
 }
+function saveState(){state.route=currentRoute; localStorage.setItem(STORE_KEY, JSON.stringify(state));}
+function toast(msg){$toast.textContent=msg; $toast.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=> $toast.classList.remove('show'),2200);}
+function closeModal(){ $modalRoot.innerHTML=''; document.body.style.overflow=''; }
+function openModal(html){ $modalRoot.innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">${html}</div></div>`; document.body.style.overflow='hidden'; }
+window.closeModal=closeModal;
 
-function saveState() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+function getDisplayedExercise(dayId, exObj){
+  const override = state.overrides?.[`${dayId}:${exObj.id}`];
+  if(!override) return exObj;
+  return {...exObj, ...override, originalId: exObj.id, overridden:true};
 }
-
-function mergeDeep(target, source) {
-  if (!source || typeof source !== 'object') return target;
-  Object.keys(source).forEach(key => {
-    if (Array.isArray(source[key])) target[key] = source[key];
-    else if (source[key] && typeof source[key] === 'object') target[key] = mergeDeep(target[key] || {}, source[key]);
-    else target[key] = source[key];
+function getWorkoutSummary(day){
+  const items = day.exercises.map(ex=>getDisplayedExercise(day.id,ex));
+  const totalSets = items.reduce((s,e)=> s + (Number(e.sets)||1), 0);
+  const muscles = [...new Set(items.flatMap(x=>x.muscles))];
+  return {items,totalSets,muscles,duration: Math.max(25, Math.round(totalSets*2.1))};
+}
+function showExerciseDemoFromLibrary(ex){
+  openModal(`
+    <div class="handle"></div>
+    <div class="modal-header">
+      <div class="modal-title"><h3>${ex.name}</h3><p>${muscleNames(ex.muscles)} · ${ex.equipment}</p></div>
+      <button class="icon-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="demo-card">
+      <div class="demo-stage">
+        ${renderAnimatedDemo(ex)}
+        <div class="chip-row">${ex.muscles.map(m=>`<span class="chip active">${muscleLabels[m]}</span>`).join('')}</div>
+      </div>
+      <div class="card tight">
+        <div class="row-between"><strong>Execução sugerida</strong><span class="tagline">${ex.defaultScheme || `${ex.sets}x${ex.reps}`}</span></div>
+        <p class="tagline" style="margin-top:8px">${ex.note || 'Movimento controlado. Priorize amplitude e técnica.'}</p>
+      </div>
+      <div class="card tight">
+        <strong>Músculos alvo</strong>
+        <div class="human-map">${renderBodyMap('front', ex.muscles)} ${renderBodyMap('back', ex.muscles)}</div>
+      </div>
+    </div>
+  `);
+}
+window.showExerciseDemoFromLibrary=showExerciseDemoFromLibrary;
+function showExerciseDemo(dayId, exerciseId){
+  const day = plan.find(d=>d.id===dayId); const original = day.exercises.find(e=>e.id===exerciseId); const ex = getDisplayedExercise(dayId, original);
+  openModal(`
+    <div class="handle"></div>
+    <div class="modal-header">
+      <div class="modal-title"><h3>${ex.name}</h3><p>${day.title} · ${ex.sets} séries · ${ex.reps} reps</p></div>
+      <button class="icon-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="demo-card">
+      <div class="demo-stage">
+        ${renderAnimatedDemo(ex)}
+        <div class="chip-row">${ex.muscles.map(m=>`<span class="chip active">${muscleLabels[m]}</span>`).join('')}</div>
+      </div>
+      <div class="list-plain">
+        <div class="item"><span>Descanso</span><strong>${ex.rest}</strong></div>
+        <div class="item"><span>Equipamento</span><strong>${ex.equipment}</strong></div>
+        <div class="item"><span>Execução</span><strong>${ex.note || 'Controlado, sem pressa.'}</strong></div>
+      </div>
+      <div class="card tight">
+        <strong>Músculos alvo</strong>
+        <div class="human-map">${renderBodyMap('front', ex.muscles)} ${renderBodyMap('back', ex.muscles)}</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn soft" onclick="openSubstituteModal('${dayId}','${exerciseId}')">Substituir exercício</button>
+        ${ex.overridden ? `<button class="btn outline" onclick="resetExercise('${dayId}','${exerciseId}')">Voltar ao original</button>`:''}
+      </div>
+    </div>
+  `);
+}
+window.showExerciseDemo=showExerciseDemo;
+function openSubstituteModal(dayId, exerciseId){
+  const day = plan.find(d=>d.id===dayId); const base = day.exercises.find(e=>e.id===exerciseId);
+  const filters = state.libraryFilters || {search:'', muscle:'Todos', equipment:'Todos'};
+  const filtered = getFilteredLibrary(base.muscles, filters);
+  openModal(`
+    <div class="handle"></div>
+    <div class="modal-header">
+      <div class="modal-title"><h3>Substituir exercício</h3><p>${base.name}</p></div>
+      <button class="icon-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="filters">
+      <input class="search-box" id="libSearch" placeholder="Procurar exercício" value="${filters.search || ''}" oninput="updateLibraryFilters('${dayId}','${exerciseId}')" />
+      <select id="libMuscle" onchange="updateLibraryFilters('${dayId}','${exerciseId}')">${muscleOptions.map(o=>`<option ${filters.muscle===o?'selected':''}>${o}</option>`).join('')}</select>
+      <select id="libEquipment" onchange="updateLibraryFilters('${dayId}','${exerciseId}')">${equipmentOptions.map(o=>`<option ${filters.equipment===o?'selected':''}>${o}</option>`).join('')}</select>
+    </div>
+    <div style="height:12px"></div>
+    <div class="library-list">
+      ${filtered.length ? filtered.map(item=> renderLibraryRow(item, `chooseSubstitute('${dayId}','${exerciseId}','${item.id}')`, true)).join('') : `<div class="empty">Nada encontrado com esses filtros.</div>`}
+    </div>
+  `);
+}
+window.openSubstituteModal=openSubstituteModal;
+function updateLibraryFilters(dayId, exerciseId){
+  state.libraryFilters = {search:document.getElementById('libSearch').value, muscle:document.getElementById('libMuscle').value, equipment:document.getElementById('libEquipment').value};
+  saveState();
+  openSubstituteModal(dayId, exerciseId);
+}
+window.updateLibraryFilters=updateLibraryFilters;
+function chooseSubstitute(dayId, exerciseId, libId){
+  const libEx = exerciseLibrary.find(x=>x.id===libId);
+  const day = plan.find(d=>d.id===dayId); const base = day.exercises.find(e=>e.id===exerciseId);
+  state.overrides[`${dayId}:${exerciseId}`] = {
+    id: libEx.id, name: libEx.name, muscles: libEx.muscles, equipment: libEx.equipment, demo: libEx.demo,
+    note: libEx.note, sets: base.sets, reps: base.reps, rest: base.rest
+  };
+  saveState(); closeModal(); render(); toast('Exercício substituído');
+}
+window.chooseSubstitute=chooseSubstitute;
+function resetExercise(dayId, exerciseId){ delete state.overrides[`${dayId}:${exerciseId}`]; saveState(); closeModal(); render(); toast('Exercício original restaurado'); }
+window.resetExercise=resetExercise;
+function muscleNames(muscles){ return muscles.map(m=>muscleLabels[m]).join(', '); }
+function getFilteredLibrary(preferredMuscles=[], filters=state.libraryFilters){
+  return exerciseLibrary.filter(item=>{
+    const searchOk = !filters.search || item.name.toLowerCase().includes(filters.search.toLowerCase());
+    const muscleOk = filters.muscle==='Todos' || item.muscles.some(m=>muscleLabels[m]===filters.muscle);
+    const equipOk = filters.equipment==='Todos' || item.equipment===filters.equipment;
+    const preferredBoost = preferredMuscles.length===0 || item.muscles.some(m=>preferredMuscles.includes(m));
+    return searchOk && muscleOk && equipOk && preferredBoost;
   });
-  return target;
 }
 
-function showToast(message) {
-  $toast.textContent = message;
-  $toast.classList.add('show');
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => $toast.classList.remove('show'), 2700);
+function changeRoute(route, meta=null){ currentRoute=route; routeMeta=meta; saveState(); render(); }
+
+document.querySelectorAll('.nav-btn').forEach(btn=>btn.addEventListener('click',()=> changeRoute(btn.dataset.route)));
+
+function renderTopbar(){
+  const titleMap = {
+    home:['Isacc','Plano da semana'], workouts:['Treinos','Rotinas e execução'], library:['Biblioteca','Exercícios e substituições'], water:['Água','Meta e consumo diário'], progress:['Evolução','Medidas e corridas'], measures:['Medidas','Peso e circunferências'], run:['Corrida','Log de cardio']
+  };
+  let title = titleMap[currentRoute] || ['Isacc','Treino híbrido'];
+  if(currentRoute==='workout-detail' && routeMeta){ const day = plan.find(d=>d.id===routeMeta); title=[day.title,'Detalhes do treino']; }
+  $topbar.innerHTML = `
+    <div class="brand">
+      ${currentRoute==='workout-detail' ? `<button class="icon-btn" onclick="changeRoute('workouts')">←</button>` : `<div class="avatar">IL</div>`}
+      <div><h1>${title[0]}</h1><span class="subtitle">${title[1]}</span></div>
+    </div>
+    <button class="icon-btn" onclick="openQuickMenu()">⋯</button>
+  `;
+}
+window.changeRoute=changeRoute;
+function openQuickMenu(){
+  openModal(`
+    <div class="handle"></div>
+    <div class="modal-header"><div class="modal-title"><h3>Atalhos</h3><p>Configurações rápidas</p></div><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <div class="list-plain">
+      <button class="item" onclick="changeRoute('measures'); closeModal()"><span>Adicionar medida corporal</span><strong>→</strong></button>
+      <button class="item" onclick="changeRoute('run'); closeModal()"><span>Registrar corrida/cardio</span><strong>→</strong></button>
+      <button class="item" onclick="exportData()"><span>Exportar dados</span><strong>JSON</strong></button>
+      <button class="item" onclick="resetAllData()"><span>Limpar dados locais</span><strong>⚠️</strong></button>
+    </div>
+  `);
+}
+window.openQuickMenu=openQuickMenu;
+function exportData(){
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='isacc-hybrid-data.json'; a.click(); toast('Dados exportados');
+}
+window.exportData=exportData;
+function resetAllData(){ if(confirm('Tem certeza que deseja limpar os dados locais?')){ localStorage.removeItem(STORE_KEY); state=structuredClone(defaultState); closeModal(); render(); toast('Dados limpos'); } }
+window.resetAllData=resetAllData;
+
+function render(){
+  renderTopbar();
+  document.querySelectorAll('.nav-btn').forEach(btn=> btn.classList.toggle('active', btn.dataset.route===currentRoute));
+  if(currentRoute==='home') return renderHome();
+  if(currentRoute==='workouts') return renderWorkouts();
+  if(currentRoute==='workout-detail') return renderWorkoutDetail(routeMeta);
+  if(currentRoute==='library') return renderLibrary();
+  if(currentRoute==='water') return renderWater();
+  if(currentRoute==='progress') return renderProgress();
+  if(currentRoute==='measures') return renderMeasures();
+  if(currentRoute==='run') return renderRun();
 }
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
-}
-
-function getTodayWorkout() {
-  const day = new Date().getDay();
-  return plan.find(w => w.day === day) || plan[0];
-}
-
-function getChecklist(date = todayISO()) {
-  if (!state.checklists[date]) {
-    state.checklists[date] = {
-      noSofa: false,
-      workout: false,
-      water: false,
-      protein: false,
-      creatine: false,
-      sleep: false,
-      walkBreaks: false
-    };
-  }
-  return state.checklists[date];
-}
-
-function getWaterDay(date = todayISO()) {
-  if (!state.water[date]) state.water[date] = { totalMl: 0, entries: [] };
-  return state.water[date];
-}
-
-function formatMl(ml) {
-  if (ml >= 1000) return `${(ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} L`;
-  return `${ml} ml`;
-}
-
-function calcPace(distanceKm, timeMin) {
-  if (!distanceKm || !timeMin) return '';
-  const pace = timeMin / distanceKm;
-  const min = Math.floor(pace);
-  const sec = Math.round((pace - min) * 60).toString().padStart(2, '0');
-  return `${min}:${sec}/km`;
-}
-
-function parseTimeToMinutes(value) {
-  if (!value) return 0;
-  const parts = String(value).split(':').map(Number);
-  if (parts.length === 3) return parts[0] * 60 + parts[1] + parts[2] / 60;
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  return Number(value) || 0;
-}
-
-function setRoute(route) {
-  currentRoute = route;
-  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.route === baseRoute(route)));
-  render();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function baseRoute(route) {
-  if (route.startsWith('workout:')) return 'workouts';
-  return route;
-}
-
-function overrideKey(workoutId, slotId) {
-  return `${workoutId}::${slotId}`;
-}
-
-function getWorkout(workoutId) {
-  return plan.find(w => w.id === workoutId);
-}
-
-function getExercisesForWorkout(workout) {
-  return workout.exercises.map(slot => {
-    const replacement = state.exerciseOverrides?.[overrideKey(workout.id, slot.id)];
-    if (replacement) {
-      return { ...replacement, slotId: slot.id, originalId: slot.id, originalName: slot.name, replaced: true };
-    }
-    return { ...slot, slotId: slot.id, originalId: slot.id, originalName: slot.name, replaced: false };
-  });
-}
-
-function findExerciseInWorkout(workoutId, exerciseId, slotId = '') {
-  const workout = getWorkout(workoutId);
-  if (!workout) return null;
-  return getExercisesForWorkout(workout).find(e => e.slotId === slotId || e.id === exerciseId);
-}
-
-function findExerciseById(exerciseId, workoutId = '') {
-  if (workoutId) {
-    const inWorkout = findExerciseInWorkout(workoutId, exerciseId);
-    if (inWorkout) return inWorkout;
-  }
-  for (const workout of plan) {
-    const found = getExercisesForWorkout(workout).find(e => e.id === exerciseId || e.slotId === exerciseId);
-    if (found) return found;
-  }
-  return exerciseLibrary.find(e => e.id === exerciseId) || null;
-}
-
-function allLibraryExercises() {
-  const planExercises = plan.flatMap(w => w.exercises).map(e => ({ ...e, equipment: e.equipment || 'Plano' }));
-  const map = new Map();
-  [...exerciseLibrary, ...planExercises].forEach(item => map.set(item.id, item));
-  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-}
-
-function render() {
-  if (currentRoute === 'home') renderHome();
-  else if (currentRoute === 'workouts') renderWorkouts();
-  else if (currentRoute.startsWith('workout:')) renderWorkoutDetail(currentRoute.split(':')[1]);
-  else if (currentRoute === 'run') renderRun();
-  else if (currentRoute === 'measures') renderMeasures();
-  else if (currentRoute === 'water') renderWater();
-  else if (currentRoute === 'progress') renderProgress();
-}
-
-function renderHome() {
-  const workout = getTodayWorkout();
-  const water = getWaterDay();
-  const checklist = getChecklist();
-  const waterPercent = Math.min(100, Math.round((water.totalMl / state.settings.waterGoalMl) * 100));
-  const latestMeasure = state.bodyMeasures.at(-1) || {};
-  const weekday = weekdayMap[new Date().getDay()];
-  const completedToday = state.workoutLogs.filter(log => log.date === todayISO()).length;
-
+function renderHome(){
+  const nextWorkout = plan[(today.getDay()+6)%6] || plan[0];
+  const water = getWaterMl(todayDate);
   $app.innerHTML = `
-    <section class="hero">
-      <h2>${weekday}: ${escapeHtml(workout.title)}</h2>
-      <p>${escapeHtml(workout.goal)}</p>
-      <div class="pill-row">
-        <span class="pill green">${escapeHtml(workout.type)}</span>
-        <span class="pill blue">${escapeHtml(workout.duration)}</span>
-        <span class="pill orange">${escapeHtml(workout.intensity)}</span>
-      </div>
-      <div class="btn-row" style="margin-top:16px">
-        <button class="btn primary" data-action="open-workout" data-id="${workout.id}">Iniciar treino de hoje</button>
-        <button class="btn ghost" data-route-jump="water">Registrar água</button>
-      </div>
-    </section>
-
-    <section class="grid three" style="margin-top:14px">
-      <div class="card compact stat"><span class="label">Peso atual</span><span class="value">${latestMeasure.weight || state.profile.weight} kg</span><span class="sub">Meta: cintura baixando</span></div>
-      <div class="card compact stat"><span class="label">Cintura</span><span class="value">${latestMeasure.waist || 96} cm</span><span class="sub">1x por semana</span></div>
-      <div class="card compact stat"><span class="label">Água hoje</span><span class="value">${formatMl(water.totalMl)}</span><span class="sub">${waterPercent}% da meta</span></div>
-    </section>
-
-    <section class="section-title">
-      <div><h2>Checklist do Isacc</h2><p>Coisas pequenas que seguram o resultado no déficit.</p></div>
-    </section>
-    <div class="checklist">
-      ${checkItem('noSofa', 'Cheguei e não sentei no sofá/celular antes do treino', checklist.noSofa)}
-      ${checkItem('workout', completedToday ? `Treino registrado (${completedToday} exercício(s))` : 'Treino do dia feito', checklist.workout || completedToday)}
-      ${checkItem('water', `Água: bater ${formatMl(state.settings.waterGoalMl)}`, checklist.water || water.totalMl >= state.settings.waterGoalMl)}
-      ${checkItem('protein', 'Proteína nas refeições principais', checklist.protein)}
-      ${checkItem('creatine', `Creatina ${state.settings.creatineDose}`, checklist.creatine)}
-      ${checkItem('walkBreaks', 'Pausas de caminhada no trabalho', checklist.walkBreaks)}
-      ${checkItem('sleep', `Cama perto de ${state.profile.sleepTarget}`, checklist.sleep)}
-    </div>
-
-    <section class="section-title">
-      <div><h2>Plano de hoje</h2><p>Ordem simples para executar sem pensar.</p></div>
-    </section>
-    <div class="timeline">
-      <div class="timeline-item"><strong>17:40</strong><span>Chegar em casa e comer pré-treino planejado.</span></div>
-      <div class="timeline-item"><strong>18:15–18:30</strong><span>Ir para academia sem cair no sofá.</span></div>
-      <div class="timeline-item"><strong>20:00–20:30</strong><span>Jantar e deixar tudo pronto para amanhã.</span></div>
-      <div class="timeline-item"><strong>22:30</strong><span>Dormir para não quebrar a semana.</span></div>
-    </div>
-
-    <section class="section-title">
-      <div><h2>Exercícios de hoje</h2><p>Toque para registrar carga, reps, RIR e dor.</p></div>
-    </section>
-    <div class="list">
-      ${getExercisesForWorkout(workout).map(item => `
-        <div class="list-item">
-          <div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.target)} • ${escapeHtml(item.intensity)}${item.replaced ? ` • substituiu ${escapeHtml(item.originalName)}` : ''}</small></div>
-          <button class="btn ghost" data-action="log-exercise" data-workout="${workout.id}" data-exercise="${item.id}" data-slot="${item.slotId}">Registrar</button>
+    <div class="section">
+      <div class="card hero">
+        <h2>Foco no shape,<br/>consistência no processo.</h2>
+        <p>Meta atual: secar barriga, crescer superior e evoluir corrida sem largar a musculação.</p>
+        <div class="pills" style="margin-top:12px">
+          <span class="pill blue">${state.profile.weight.toFixed(2)} kg</span>
+          <span class="pill orange">Cintura ${state.profile.waist} cm</span>
+          <span class="pill green">Água ${water} / ${state.profile.waterGoal} ml</span>
         </div>
-      `).join('')}
-    </div>
-  `;
-}
+      </div>
 
-function checkItem(key, label, checked) {
-  return `<label class="check ${checked ? 'done' : ''}"><input type="checkbox" data-action="toggle-check" data-key="${key}" ${checked ? 'checked' : ''}> ${escapeHtml(label)}</label>`;
-}
+      <div class="grid-2">
+        <div class="card stat-card"><span class="label">Treino de hoje</span><span class="value">${nextWorkout.day}</span><span class="sub">${nextWorkout.title.replace(nextWorkout.day+' - ','')}</span></div>
+        <div class="card stat-card"><span class="label">Próxima ação</span><span class="value">18:15</span><span class="sub">Sair do sofá e ir treinar</span></div>
+      </div>
 
-function renderWorkouts() {
-  const order = [1, 2, 3, 4, 5, 6, 0];
-  const ordered = order.map(day => plan.find(w => w.day === day));
+      <div class="card">
+        <div class="section-title"><div><h2>Seu dia</h2><p>Check rápido do que importa.</p></div></div>
+        <div class="btn-row">
+          <button class="btn primary" onclick="changeRoute('workout-detail','${nextWorkout.id}')">Abrir treino de hoje</button>
+          <button class="btn outline" onclick="changeRoute('water')">Registrar água</button>
+          <button class="btn outline" onclick="changeRoute('run')">Registrar cardio</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title"><div><h2>Semana</h2><p>Rotina estruturada para iPhone e uso como app.</p></div></div>
+        <div class="exercise-list">
+          ${plan.slice(0,3).map(day=>{
+            const summary=getWorkoutSummary(day);
+            return `<button class="day-card card tight" style="text-align:left;border:0" onclick="changeRoute('workout-detail','${day.id}')">
+              <div class="day-badge"><strong>${day.day}</strong><small>${summary.items.length} ex.</small></div>
+              <div><h3>${day.title}</h3><p>${day.subtitle}<br>${summary.totalSets} séries · ${summary.duration} min</p></div>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+function renderWorkouts(){
   $app.innerHTML = `
-    <section class="hero">
-      <h2>Semana híbrida</h2>
-      <p>Superior 2x, inferior 2x, corrida/calistenia e um dia curto para segunda-feira não te vencer.</p>
-      <div class="pill-row">
-        <span class="pill green">Hipertrofia</span>
-        <span class="pill blue">Corrida</span>
-        <span class="pill orange">Calistenia</span>
-      </div>
-    </section>
-    <section class="section-title">
-      <div><h2>Treinos</h2><p>Abra o dia e registre as séries anteriores igual Hevy.</p></div>
-    </section>
-    <div class="grid">
-      ${ordered.map(w => workoutCard(w)).join('')}
-    </div>
-  `;
-}
-
-function workoutCard(w) {
-  const logs = state.workoutLogs.filter(log => log.workoutId === w.id);
-  return `
-    <article class="card week-card">
-      <div class="day-badge"><strong>${shortWeek[w.day]}</strong><span>${escapeHtml(w.type)}</span></div>
-      <div>
-        <h3>${escapeHtml(w.title)}</h3>
-        <p>${escapeHtml(w.goal)}</p>
-        <div class="pill-row">
-          <span class="pill green">${escapeHtml(w.duration)}</span>
-          <span class="pill blue">${getExercisesForWorkout(w).length} itens</span>
-          <span class="pill">${logs.length} registros</span>
-        </div>
-        <div class="btn-row" style="margin-top:12px">
-          <button class="btn primary" data-action="open-workout" data-id="${w.id}">Abrir treino</button>
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function renderWorkoutDetail(workoutId) {
-  const workout = plan.find(w => w.id === workoutId) || getTodayWorkout();
-  const exercises = getExercisesForWorkout(workout);
-  const muscleCount = getWorkoutMuscleCount(workout);
-  $app.innerHTML = `
-    <section class="hero">
-      <h2>${escapeHtml(workout.title)}</h2>
-      <p>${escapeHtml(workout.goal)}</p>
-      <div class="pill-row">
-        <span class="pill green">${escapeHtml(workout.type)}</span>
-        <span class="pill blue">${escapeHtml(workout.duration)}</span>
-        <span class="pill orange">${escapeHtml(workout.intensity)}</span>
-      </div>
-      <div class="btn-row" style="margin-top:16px">
-        <button class="btn ghost" data-route-jump="workouts">Voltar</button>
-        <button class="btn primary" data-action="finish-workout" data-workout="${workout.id}">Marcar treino feito</button>
-      </div>
-    </section>
-
-    <section class="section-title">
-      <div><h2>Músculos do treino</h2><p>Distribuição de estímulos de hoje.</p></div>
-    </section>
-    <div class="pill-row">
-      ${Object.entries(muscleCount).map(([muscle, count]) => `<span class="pill green">${muscleGroups[muscle]} • ${count}</span>`).join('')}
-    </div>
-
-    <section class="section-title">
-      <div><h2>Exercícios</h2><p>Registre peso, reps, RIR, descanso e dor. O app mostra o último registro.</p></div>
-    </section>
-    <div>
-      ${exercises.map(exercise => exerciseCard(workout, exercise)).join('')}
-    </div>
-  `;
-}
-
-function getWorkoutMuscleCount(workout) {
-  const result = {};
-  getExercisesForWorkout(workout).forEach(item => item.muscles.forEach(m => result[m] = (result[m] || 0) + 1));
-  return result;
-}
-
-function exerciseCard(workout, exercise) {
-  const latest = getLatestExerciseLog(exercise.id);
-  return `
-    <article class="exercise">
-      <div class="exercise-head">
-        <div>
-          <h4>${escapeHtml(exercise.name)}</h4>
-          <small>${escapeHtml(exercise.target)} • ${escapeHtml(exercise.intensity)}${exercise.replaced ? ` • substituiu ${escapeHtml(exercise.originalName)}` : ''}</small>
-        </div>
-        <div class="btn-row exercise-actions">
-          <button class="btn ghost" data-action="replace-exercise" data-workout="${workout.id}" data-slot="${exercise.slotId}">Substituir</button>
-          <button class="btn primary" data-action="log-exercise" data-workout="${workout.id}" data-exercise="${exercise.id}" data-slot="${exercise.slotId}">Registrar</button>
-        </div>
-      </div>
-      <div class="exercise-visual-row">
-        ${muscleFigure(exercise.muscles, exercise.name)}
-        <div>
-          <p style="margin-top:9px">${escapeHtml(exercise.note)}</p>
-          <div class="pill-row">
-            ${exercise.muscles.map(m => `<span class="pill blue">${muscleGroups[m]}</span>`).join('')}
+    <div class="section">
+      <div class="section-title"><div><h2>Rotinas</h2><p>Toque em um treino para ver exercícios, execução e substituições.</p></div></div>
+      ${plan.map(day=>{
+        const s=getWorkoutSummary(day);
+        return `<div class="card">
+          <button class="day-card" style="border:0;background:transparent;padding:0;width:100%;text-align:left" onclick="changeRoute('workout-detail','${day.id}')">
+            <div class="day-badge"><strong>${day.day}</strong><small>${s.duration} min</small></div>
+            <div><h3>${day.title}</h3><p>${day.subtitle}</p></div>
+          </button>
+          <div style="height:12px"></div>
+          <div class="summary">
+            <div><strong>${s.items.length}</strong><span>Exercícios</span></div>
+            <div><strong>${s.totalSets}</strong><span>Séries</span></div>
+            <div><strong>${s.duration}</strong><span>Min</span></div>
           </div>
-          ${exercise.equipment ? `<div class="pill-row"><span class="pill">${escapeHtml(exercise.equipment)}</span>${exercise.replaced ? `<button class="btn ghost mini" data-action="reset-replacement" data-workout="${workout.id}" data-slot="${exercise.slotId}">Voltar original</button>` : ''}</div>` : ''}
+          <div class="card tight" style="margin-top:12px">
+            <strong>Resumo muscular</strong>
+            <div class="human-map">${renderBodyMap('front', s.muscles)} ${renderBodyMap('back', s.muscles)}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+function renderWorkoutDetail(dayId){
+  const day = plan.find(d=>d.id===dayId); const summary = getWorkoutSummary(day);
+  $app.innerHTML = `
+    <div class="section">
+      <div class="card">
+        <div class="section-title"><div><h2>${day.title}</h2><p>${day.subtitle}</p></div></div>
+        <div class="summary">
+          <div><strong>${summary.items.length}</strong><span>Exercícios</span></div>
+          <div><strong>${summary.totalSets}</strong><span>Total de séries</span></div>
+          <div><strong>${summary.duration}</strong><span>Duração</span></div>
+        </div>
+        <div class="card tight" style="margin-top:12px">
+          <strong>Resumo da rotina</strong>
+          <div class="human-map">${renderBodyMap('front', summary.muscles)} ${renderBodyMap('back', summary.muscles)}</div>
         </div>
       </div>
-      ${latest ? `
-        <table class="sets-table">
-          <thead><tr><th>Último</th><th>Kg</th><th>Reps</th><th>RIR</th><th>Dor</th></tr></thead>
-          <tbody>${latest.sets.map((s, index) => `<tr><td>${index + 1}</td><td>${s.weight || '-'}</td><td>${s.reps || '-'}</td><td>${s.rir || '-'}</td><td>${s.pain || 0}/10</td></tr>`).join('')}</tbody>
-        </table>
-      ` : `<div class="empty" style="margin-top:10px;padding:14px">Sem registro ainda. Bora criar histórico.</div>`}
-    </article>
-  `;
-}
 
-function hasMuscle(muscles, names) {
-  return names.some(name => muscles.includes(name));
+      <div class="exercise-list">
+        ${day.exercises.map(original=>{
+          const ex = getDisplayedExercise(day.id, original);
+          return `<div class="exercise-item">
+            <div class="thumb">${renderThumbDemo(ex)}</div>
+            <div class="exercise-main">
+              <h4>${ex.name}</h4>
+              <div class="exercise-meta">
+                <span>${ex.sets} sets</span>
+                <span>${ex.reps} reps</span>
+                <span>${ex.rest}</span>
+              </div>
+              ${ex.overridden ? `<div class="tagline" style="margin-top:6px;color:var(--blue)">Substituído</div>`:''}
+            </div>
+            <div class="exercise-actions">
+              <button class="mini-btn soft" onclick="showExerciseDemo('${day.id}','${original.id}')">Ver</button>
+              <button class="mini-btn" onclick="openSubstituteModal('${day.id}','${original.id}')">Trocar</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
 }
-
-function muscleCls(muscles, names) {
-  return hasMuscle(muscles, names) ? 'muscle-zone active' : 'muscle-zone';
+function renderLibrary(){
+  const filters=state.libraryFilters; const rows = getFilteredLibrary([], filters);
+  $app.innerHTML = `
+    <div class="section">
+      <div class="card">
+        <div class="section-title"><div><h2>Biblioteca de exercícios</h2><p>Estilo catálogo para trocar quando precisar.</p></div></div>
+        <div class="filters">
+          <input class="search-box" id="pageSearch" placeholder="Procurar exercício" value="${filters.search || ''}" />
+          <select id="pageMuscle">${muscleOptions.map(o=>`<option ${filters.muscle===o?'selected':''}>${o}</option>`).join('')}</select>
+          <select id="pageEquipment">${equipmentOptions.map(o=>`<option ${filters.equipment===o?'selected':''}>${o}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="library-list">
+        ${rows.map(item=> renderLibraryRow(item, `showExerciseDemoFromLibrary(findLibrary('${item.id}'))`)).join('')}
+      </div>
+    </div>`;
+    document.getElementById('pageSearch').addEventListener('input', updatePageFilters);
+    document.getElementById('pageMuscle').addEventListener('change', updatePageFilters);
+    document.getElementById('pageEquipment').addEventListener('change', updatePageFilters);
 }
-
-function muscleFigure(muscles = [], label = '') {
-  const front = {
-    chest: muscleCls(muscles, ['peito']), shoulders: muscleCls(muscles, ['ombros']),
-    arms: muscleCls(muscles, ['biceps', 'triceps']), abs: muscleCls(muscles, ['abdomen']),
-    quads: muscleCls(muscles, ['quadriceps']), calves: muscleCls(muscles, ['panturrilha']),
-    cardio: muscleCls(muscles, ['cardio'])
-  };
-  const back = {
-    back: muscleCls(muscles, ['costas']), shoulders: muscleCls(muscles, ['ombros']),
-    arms: muscleCls(muscles, ['triceps', 'biceps']), lumbar: muscleCls(muscles, ['lombar']),
-    glutes: muscleCls(muscles, ['gluteos']), posterior: muscleCls(muscles, ['posterior']),
-    calves: muscleCls(muscles, ['panturrilha']), cardio: muscleCls(muscles, ['cardio'])
-  };
+function updatePageFilters(){ state.libraryFilters = {search:pageSearch.value, muscle:pageMuscle.value, equipment:pageEquipment.value}; saveState(); renderLibrary(); }
+window.updatePageFilters=updatePageFilters;
+function renderLibraryRow(item, action, choosing=false){
+  return `<div class="library-item">
+    <div class="thumb" style="width:54px;height:54px;border-radius:14px">${renderThumbDemo(item)}</div>
+    <div><h4>${item.name}</h4><p>${muscleNames(item.muscles)} · ${item.equipment}</p></div>
+    <button class="mini-btn ${choosing?'soft':''}" onclick="${action}">${choosing?'Escolher':'Ver'}</button>
+  </div>`;
+}
+function findLibrary(id){ return exerciseLibrary.find(x=>x.id===id); }
+window.findLibrary=findLibrary;
+function renderWater(){
+  const current=getWaterMl(todayDate); const progress=Math.min(100, Math.round((current/state.profile.waterGoal)*100));
+  $app.innerHTML = `
+    <div class="section">
+      <div class="card">
+        <div class="water-ring" style="--progress:${progress}%"><div class="inner"><div><strong>${progress}%</strong><span>${current} / ${state.profile.waterGoal} ml</span></div></div></div>
+        <div style="height:16px"></div>
+        <div class="water-actions">
+          <button class="btn soft" onclick="addWater(state.profile.glassMl)">+ 1 copo<br><small>${state.profile.glassMl} ml</small></button>
+          <button class="btn soft" onclick="addWater(state.profile.bottleMl)">+ 1 garrafa<br><small>${state.profile.bottleMl} ml</small></button>
+          <button class="btn primary" onclick="openCustomWaterModal()">+ personalizado</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title"><div><h2>Configuração</h2><p>Personalize copo, garrafa e meta.</p></div></div>
+        <div class="kv">
+          <div class="field"><label class="tagline">Meta diária (ml)</label><input id="goalMl" type="number" value="${state.profile.waterGoal}" /></div>
+          <div class="field"><label class="tagline">Copo (ml)</label><input id="glassMl" type="number" value="${state.profile.glassMl}" /></div>
+          <div class="field"><label class="tagline">Garrafa (ml)</label><input id="bottleMl" type="number" value="${state.profile.bottleMl}" /></div>
+        </div>
+        <div style="height:12px"></div>
+        <button class="btn primary" onclick="saveWaterSettings()">Salvar</button>
+      </div>
+    </div>`;
+}
+function addWater(ml){ state.waterLog[todayDate]=(state.waterLog[todayDate]||0)+Number(ml); saveState(); renderWater(); toast(`${ml} ml adicionados`); }
+window.addWater=addWater;
+function getWaterMl(date){ return state.waterLog[date] || 0; }
+function openCustomWaterModal(){
+  openModal(`
+    <div class="handle"></div>
+    <div class="modal-header"><div class="modal-title"><h3>Adicionar água</h3><p>Digite o valor em ml.</p></div><button class="icon-btn" onclick="closeModal()">✕</button></div>
+    <input id="customWaterMl" type="number" placeholder="Ex: 350" />
+    <div style="height:12px"></div>
+    <button class="btn primary" onclick="confirmCustomWater()">Adicionar</button>
+  `);
+}
+window.openCustomWaterModal=openCustomWaterModal;
+function confirmCustomWater(){ const v=Number(document.getElementById('customWaterMl').value); if(v>0){ addWater(v); closeModal(); renderWater(); } }
+window.confirmCustomWater=confirmCustomWater;
+function saveWaterSettings(){ state.profile.waterGoal=Number(goalMl.value)||2500; state.profile.glassMl=Number(glassMl.value)||250; state.profile.bottleMl=Number(bottleMl.value)||500; saveState(); toast('Configuração salva'); }
+window.saveWaterSettings=saveWaterSettings;
+function renderProgress(){
+  const last = state.measures[state.measures.length-1] || {}; const lastRun = state.runLog[state.runLog.length-1];
+  $app.innerHTML = `
+    <div class="section">
+      <div class="grid-2">
+        <div class="card stat-card"><span class="label">Peso atual</span><span class="value">${last.weight || state.profile.weight}</span><span class="sub">kg</span></div>
+        <div class="card stat-card"><span class="label">Cintura</span><span class="value">${last.waist || state.profile.waist}</span><span class="sub">cm</span></div>
+      </div>
+      <div class="card">
+        <div class="section-title"><div><h2>Últimas medidas</h2><p>Acompanhe o que importa.</p></div><button class="btn soft" onclick="changeRoute('measures')">Atualizar</button></div>
+        <div class="list-plain">
+          <div class="item"><span>Peito</span><strong>${last.chest || '-'} cm</strong></div>
+          <div class="item"><span>Ombro</span><strong>${last.shoulder || '-'} cm</strong></div>
+          <div class="item"><span>Braço</span><strong>${last.arm || '-'} cm</strong></div>
+          <div class="item"><span>Coxa</span><strong>${last.thigh || '-'} cm</strong></div>
+          <div class="item"><span>Panturrilha</span><strong>${last.calf || '-'} cm</strong></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title"><div><h2>Corrida / cardio</h2><p>Resumo da última sessão.</p></div><button class="btn soft" onclick="changeRoute('run')">Registrar</button></div>
+        ${lastRun ? `<div class="list-plain"><div class="item"><span>Distância</span><strong>${lastRun.distance} km</strong></div><div class="item"><span>Tempo</span><strong>${lastRun.time}</strong></div><div class="item"><span>Pace</span><strong>${lastRun.pace}</strong></div><div class="item"><span>Sensação</span><strong>${lastRun.feel}</strong></div></div>` : `<div class="empty">Nenhuma corrida/cardio registrada ainda.</div>`}
+      </div>
+    </div>`;
+}
+function renderMeasures(){
+  const last = state.measures[state.measures.length-1] || {};
+  $app.innerHTML = `
+    <div class="section">
+      <div class="card">
+        <div class="section-title"><div><h2>Registrar medidas</h2><p>Atualize peso e principais circunferências.</p></div></div>
+        <div class="kv">
+          <div class="field"><label class="tagline">Peso</label><input id="mWeight" type="number" step="0.01" value="${last.weight || ''}"></div>
+          <div class="field"><label class="tagline">Cintura</label><input id="mWaist" type="number" step="0.1" value="${last.waist || ''}"></div>
+          <div class="field"><label class="tagline">Peito</label><input id="mChest" type="number" step="0.1" value="${last.chest || ''}"></div>
+          <div class="field"><label class="tagline">Ombro</label><input id="mShoulder" type="number" step="0.1" value="${last.shoulder || ''}"></div>
+          <div class="field"><label class="tagline">Braço</label><input id="mArm" type="number" step="0.1" value="${last.arm || ''}"></div>
+          <div class="field"><label class="tagline">Coxa</label><input id="mThigh" type="number" step="0.1" value="${last.thigh || ''}"></div>
+          <div class="field"><label class="tagline">Panturrilha</label><input id="mCalf" type="number" step="0.1" value="${last.calf || ''}"></div>
+          <div class="field"><label class="tagline">Quadril</label><input id="mHip" type="number" step="0.1" value="${last.hip || ''}"></div>
+        </div>
+        <div style="height:12px"></div>
+        <button class="btn primary" onclick="saveMeasures()">Salvar medidas</button>
+      </div>
+    </div>`;
+}
+function saveMeasures(){
+  const obj={date:new Date().toISOString().slice(0,10), weight:Number(mWeight.value)||0, waist:Number(mWaist.value)||0, chest:Number(mChest.value)||0, shoulder:Number(mShoulder.value)||0, arm:Number(mArm.value)||0, thigh:Number(mThigh.value)||0, calf:Number(mCalf.value)||0, hip:Number(mHip.value)||0};
+  state.measures.push(obj); state.profile.weight=obj.weight; state.profile.waist=obj.waist; saveState(); toast('Medidas salvas'); changeRoute('progress');
+}
+window.saveMeasures=saveMeasures;
+function renderRun(){
+  const last = state.runLog[state.runLog.length-1];
+  $app.innerHTML = `
+    <div class="section">
+      <div class="card">
+        <div class="section-title"><div><h2>Registrar cardio</h2><p>Corrida, caminhada, esteira ou escadas.</p></div></div>
+        <div class="kv">
+          <div class="field"><label class="tagline">Tipo</label><select id="rType"><option>Corrida</option><option>Caminhada</option><option>Esteira</option><option>Escadas</option><option>Bike</option></select></div>
+          <div class="field"><label class="tagline">Distância (km)</label><input id="rDistance" type="number" step="0.01" placeholder="Ex: 3.20"></div>
+          <div class="field"><label class="tagline">Tempo (mm:ss ou hh:mm:ss)</label><input id="rTime" placeholder="Ex: 23:28"></div>
+          <div class="field"><label class="tagline">Sensação</label><select id="rFeel"><option>Leve</option><option>Moderado</option><option>Pesado</option><option>Destruído</option></select></div>
+        </div>
+        <div style="height:12px"></div>
+        <button class="btn primary" onclick="saveRun()">Salvar cardio</button>
+      </div>
+      <div class="card">
+        <div class="section-title"><div><h2>Último registro</h2><p>Resumo rápido.</p></div></div>
+        ${last ? `<div class="list-plain"><div class="item"><span>Tipo</span><strong>${last.type}</strong></div><div class="item"><span>Distância</span><strong>${last.distance} km</strong></div><div class="item"><span>Tempo</span><strong>${last.time}</strong></div><div class="item"><span>Pace</span><strong>${last.pace}</strong></div><div class="item"><span>Sensação</span><strong>${last.feel}</strong></div></div>` : `<div class="empty">Nenhum cardio salvo ainda.</div>`}
+      </div>
+    </div>`;
+}
+function saveRun(){
+  const type=rType.value, distance=Number(rDistance.value)||0, time=rTime.value.trim(), feel=rFeel.value;
+  const pace = distance>0 && time ? calcPace(time, distance) : '-';
+  state.runLog.push({date:new Date().toISOString(), type, distance, time, feel, pace}); saveState(); toast('Cardio salvo'); changeRoute('progress');
+}
+window.saveRun=saveRun;
+function calcPace(time, distance){
+  const parts=time.split(':').map(Number); let secs=0; if(parts.length===2) secs=parts[0]*60+parts[1]; if(parts.length===3) secs=parts[0]*3600+parts[1]*60+parts[2];
+  if(!secs || !distance) return '-'; const p=secs/distance; const m=Math.floor(p/60); const s=Math.round(p%60).toString().padStart(2,'0'); return `${m}:${s}/km`;
+}
+function renderThumbDemo(ex){ return renderAnimatedDemo(ex, true); }
+function renderAnimatedDemo(ex, compact=false){
+  const type = ex.demo || 'push';
+  const size = compact ? 70 : 230;
+  const bodyClass = type==='push'?'anim-push':type==='row'?'anim-row':type==='raise'?'anim-raise':type==='squat'?'anim-squat':type==='plank'?'anim-plank':'anim-cardio';
+  let svg='';
+  if(type==='push') svg = pushSVG(ex.muscles, size, bodyClass);
+  else if(type==='row') svg = rowSVG(ex.muscles, size, bodyClass);
+  else if(type==='raise') svg = latPullSVG(ex.muscles, size, bodyClass);
+  else if(type==='squat') svg = lowerSVG(ex.muscles, size, bodyClass);
+  else if(type==='plank') svg = plankSVG(ex.muscles, size, bodyClass);
+  else svg = cardioSVG(ex.muscles, size, bodyClass);
+  return svg;
+}
+function renderBodyMap(side, muscles){
+  const mset = new Set(muscles);
+  const fill = (m, back=false)=> mset.has(m) ? (back?'highlight-back':'highlight') : 'body-base';
+  if(side==='front') return `
+  <svg viewBox="0 0 120 220" aria-label="Mapa muscular frontal">
+    <circle class="body-base" cx="60" cy="20" r="14"></circle>
+    <rect class="${fill('peito')}" x="42" y="42" rx="7" ry="7" width="16" height="18"></rect>
+    <rect class="${fill('peito')}" x="62" y="42" rx="7" ry="7" width="16" height="18"></rect>
+    <rect class="${fill('abdomen')}" x="49" y="63" rx="7" ry="7" width="22" height="28"></rect>
+    <rect class="${fill('ombros')}" x="29" y="39" rx="8" ry="8" width="13" height="18"></rect>
+    <rect class="${fill('ombros')}" x="78" y="39" rx="8" ry="8" width="13" height="18"></rect>
+    <rect class="${fill('biceps')}" x="22" y="56" rx="7" ry="7" width="14" height="32"></rect>
+    <rect class="${fill('biceps')}" x="84" y="56" rx="7" ry="7" width="14" height="32"></rect>
+    <rect class="${fill('triceps')}" x="24" y="88" rx="6" ry="6" width="12" height="26"></rect>
+    <rect class="${fill('triceps')}" x="84" y="88" rx="6" ry="6" width="12" height="26"></rect>
+    <rect class="${fill('quadriceps')}" x="42" y="99" rx="8" ry="8" width="15" height="45"></rect>
+    <rect class="${fill('quadriceps')}" x="63" y="99" rx="8" ry="8" width="15" height="45"></rect>
+    <rect class="${fill('panturrilha')}" x="45" y="147" rx="7" ry="7" width="11" height="40"></rect>
+    <rect class="${fill('panturrilha')}" x="65" y="147" rx="7" ry="7" width="11" height="40"></rect>
+    <rect class="${fill('gluteos')}" x="44" y="91" rx="8" ry="8" width="32" height="16"></rect>
+    <path class="body-outline" d="M47 34c-8 4-14 10-18 19m49-19c8 4 14 10 18 19M39 53c-2 28 1 42 5 48m32-48c2 28-1 42-5 48M49 92c-1 22-2 65-3 97m25-97c1 22 2 65 3 97M45 189l-7 18m38-18 7 18"/>
+  </svg>`;
   return `
-    <div class="muscle-card" aria-label="Músculos alvo de ${escapeHtml(label)}">
-      <svg class="muscle-svg" viewBox="0 0 240 180" role="img">
-        <text x="54" y="14" text-anchor="middle" class="figure-label">Frente</text>
-        <text x="174" y="14" text-anchor="middle" class="figure-label">Costas</text>
-
-        <g transform="translate(16,18)">
-          <circle class="body-base" cx="38" cy="13" r="10"/>
-          <path class="body-base" d="M29 27 Q38 22 47 27 L53 70 Q45 78 31 78 L23 70 Z"/>
-          <path class="${front.chest}" d="M27 30 Q38 25 49 30 L47 48 Q38 45 29 48 Z"/>
-          <path class="${front.abs}" d="M31 49 L45 49 L46 73 Q38 77 30 73 Z"/>
-          <circle class="${front.shoulders}" cx="22" cy="32" r="8"/>
-          <circle class="${front.shoulders}" cx="54" cy="32" r="8"/>
-          <path class="${front.arms}" d="M16 38 Q10 57 13 79 L23 78 Q22 56 28 39 Z"/>
-          <path class="${front.arms}" d="M60 38 Q66 57 63 79 L53 78 Q54 56 48 39 Z"/>
-          <path class="${front.quads}" d="M29 78 L39 78 L38 122 L25 122 Z"/>
-          <path class="${front.quads}" d="M41 78 L51 78 L55 122 L42 122 Z"/>
-          <path class="${front.calves}" d="M26 122 L38 122 L35 150 L24 150 Z"/>
-          <path class="${front.calves}" d="M43 122 L55 122 L57 150 L46 150 Z"/>
-          <path class="${front.cardio}" d="M38 40 c-8-8-18 2-8 12 l8 8 l8-8 c10-10 0-20-8-12z"/>
-        </g>
-
-        <g transform="translate(136,18)">
-          <circle class="body-base" cx="38" cy="13" r="10"/>
-          <path class="body-base" d="M29 27 Q38 22 47 27 L53 70 Q45 78 31 78 L23 70 Z"/>
-          <path class="${back.back}" d="M25 30 Q38 22 51 30 L50 63 Q38 56 26 63 Z"/>
-          <path class="${back.lumbar}" d="M31 59 L45 59 L47 76 Q38 80 29 76 Z"/>
-          <circle class="${back.shoulders}" cx="22" cy="32" r="8"/>
-          <circle class="${back.shoulders}" cx="54" cy="32" r="8"/>
-          <path class="${back.arms}" d="M16 38 Q10 57 13 79 L23 78 Q22 56 28 39 Z"/>
-          <path class="${back.arms}" d="M60 38 Q66 57 63 79 L53 78 Q54 56 48 39 Z"/>
-          <path class="${back.glutes}" d="M28 76 Q38 70 48 76 L50 92 Q38 100 26 92 Z"/>
-          <path class="${back.posterior}" d="M28 92 L39 92 L37 122 L25 122 Z"/>
-          <path class="${back.posterior}" d="M41 92 L52 92 L55 122 L43 122 Z"/>
-          <path class="${back.calves}" d="M26 122 L38 122 L35 150 L24 150 Z"/>
-          <path class="${back.calves}" d="M43 122 L55 122 L57 150 L46 150 Z"/>
-          <path class="${back.cardio}" d="M38 41 c-7-7-16 2-7 11 l7 7 l7-7 c9-9 0-18-7-11z"/>
-        </g>
-      </svg>
-    </div>
-  `;
+  <svg viewBox="0 0 120 220" aria-label="Mapa muscular posterior">
+    <circle class="body-base" cx="60" cy="20" r="14"></circle>
+    <rect class="${fill('costas',true)}" x="43" y="40" rx="8" ry="8" width="34" height="42"></rect>
+    <rect class="${fill('ombros',true)}" x="28" y="38" rx="8" ry="8" width="13" height="18"></rect>
+    <rect class="${fill('ombros',true)}" x="79" y="38" rx="8" ry="8" width="13" height="18"></rect>
+    <rect class="${fill('triceps',true)}" x="22" y="56" rx="7" ry="7" width="14" height="32"></rect>
+    <rect class="${fill('triceps',true)}" x="84" y="56" rx="7" ry="7" width="14" height="32"></rect>
+    <rect class="${fill('lombar',true)}" x="49" y="78" rx="8" ry="8" width="22" height="20"></rect>
+    <rect class="${fill('gluteos',true)}" x="43" y="94" rx="8" ry="8" width="34" height="18"></rect>
+    <rect class="${fill('posterior',true)}" x="42" y="114" rx="8" ry="8" width="15" height="40"></rect>
+    <rect class="${fill('posterior',true)}" x="63" y="114" rx="8" ry="8" width="15" height="40"></rect>
+    <rect class="${fill('panturrilha',true)}" x="45" y="157" rx="7" ry="7" width="11" height="38"></rect>
+    <rect class="${fill('panturrilha',true)}" x="65" y="157" rx="7" ry="7" width="11" height="38"></rect>
+    <path class="body-outline" d="M47 34c-8 4-14 10-18 19m49-19c8 4 14 10 18 19M39 53c-2 28 1 42 5 48m32-48c2 28-1 42-5 48M49 92c-1 22-2 65-3 97m25-97c1 22 2 65 3 97M45 189l-7 18m38-18 7 18"/>
+  </svg>`;
 }
-
-function getLatestExerciseLog(exerciseId) {
-  return [...state.workoutLogs].reverse().find(log => log.exerciseId === exerciseId);
-}
-
-function renderRun() {
-  const best5k = getBestRunAtLeast(5);
-  const best3k = getBestRunAtLeast(3);
-  $app.innerHTML = `
-    <section class="hero">
-      <h2>Corrida</h2>
-      <p>Registre distância, tempo, pace e sensação. Sem exagerar para não atrapalhar a hipertrofia.</p>
-      <div class="pill-row">
-        <span class="pill green">Seg: Z2 leve</span>
-        <span class="pill blue">Qui: intervalado</span>
-        <span class="pill orange">Sáb: cardio leve</span>
-      </div>
-    </section>
-
-    <section class="grid two" style="margin-top:14px">
-      <div class="card stat"><span class="label">Melhor 3 km+</span><span class="value">${best3k ? best3k.pace : '-'}</span><span class="sub">${best3k ? `${best3k.distanceKm} km • ${best3k.date}` : 'sem registro'}</span></div>
-      <div class="card stat"><span class="label">Melhor 5 km+</span><span class="value">${best5k ? best5k.pace : '-'}</span><span class="sub">${best5k ? `${best5k.distanceKm} km • ${best5k.date}` : 'sem registro'}</span></div>
-    </section>
-
-    <section class="section-title">
-      <div><h2>Novo registro</h2><p>Use formato tempo 00:30 ou 00:30:15.</p></div>
-    </section>
-    <form class="card" data-form="run">
-      <div class="form-grid">
-        <div><label>Data</label><input class="input" name="date" type="date" value="${todayISO()}"></div>
-        <div><label>Tipo</label><select name="type"><option>Corrida</option><option>Caminhada</option><option>Esteira</option><option>Intervalado</option></select></div>
-        <div><label>Distância (km)</label><input class="input" name="distanceKm" type="number" step="0.01" placeholder="Ex: 3.21"></div>
-        <div><label>Tempo</label><input class="input" name="time" type="text" placeholder="Ex: 23:28 ou 00:23:28"></div>
-        <div><label>Local</label><input class="input" name="location" placeholder="Porto Franco, Esteira..."></div>
-        <div><label>Sensação</label><select name="feeling"><option>Leve</option><option>Boa</option><option>Pesada</option><option>Destruído</option></select></div>
-      </div>
-      <div style="margin-top:12px"><label>Observação</label><textarea name="notes" placeholder="Dor, respiração, pace, clima..."></textarea></div>
-      <div class="btn-row" style="margin-top:14px"><button class="btn primary" type="submit">Salvar corrida</button></div>
-    </form>
-
-    <section class="section-title">
-      <div><h2>Histórico</h2><p>Últimas corridas/caminhadas.</p></div>
-    </section>
-    <div class="list">
-      ${state.runLogs.length ? [...state.runLogs].reverse().map(runItem).join('') : '<div class="empty">Nenhuma corrida registrada ainda.</div>'}
-    </div>
-  `;
-}
-
-function runItem(run) {
-  return `
-    <div class="list-item">
-      <div>
-        <strong>${escapeHtml(run.type)} • ${run.distanceKm} km</strong>
-        <small>${escapeHtml(run.date)} • ${escapeHtml(run.time)} • ${escapeHtml(run.pace)} • ${escapeHtml(run.feeling)}</small>
-      </div>
-      <button class="btn ghost" data-action="delete-run" data-id="${run.id}">Excluir</button>
-    </div>
-  `;
-}
-
-function getBestRunAtLeast(distance) {
-  const runs = state.runLogs.filter(r => Number(r.distanceKm) >= distance && r.timeMin);
-  if (!runs.length) return null;
-  return [...runs].sort((a, b) => (a.timeMin / a.distanceKm) - (b.timeMin / b.distanceKm))[0];
-}
-
-function renderMeasures() {
-  const latest = state.bodyMeasures.at(-1) || {};
-  const previous = state.bodyMeasures.at(-2) || {};
-  const diffWaist = latest.waist && previous.waist ? (latest.waist - previous.waist).toFixed(1) : null;
-  const diffWeight = latest.weight && previous.weight ? (latest.weight - previous.weight).toFixed(2) : null;
-  $app.innerHTML = `
-    <section class="hero">
-      <h2>Medidas corporais</h2>
-      <p>Peso é só uma parte. Cintura, foto, carga e corrida vão mostrar se o plano está funcionando.</p>
-      <div class="pill-row">
-        <span class="pill green">Peso ${latest.weight || '-'} kg ${diffWeight ? signed(diffWeight, 'kg') : ''}</span>
-        <span class="pill blue">Cintura ${latest.waist || '-'} cm ${diffWaist ? signed(diffWaist, 'cm') : ''}</span>
-        <span class="pill orange">Braço ${latest.armR || '-'} cm</span>
-      </div>
-    </section>
-
-    <section class="section-title">
-      <div><h2>Novo registro</h2><p>Meça sempre no mesmo horário. Ideal: ao acordar.</p></div>
-    </section>
-    <form class="card" data-form="measures">
-      <div class="form-grid three">
-        ${measureInput('date', 'Data', 'date', todayISO())}
-        ${measureInput('weight', 'Peso kg', 'number', latest.weight, '0.01')}
-        ${measureInput('waist', 'Cintura cm', 'number', latest.waist, '0.1')}
-        ${measureInput('neck', 'Pescoço cm', 'number', latest.neck, '0.1')}
-        ${measureInput('shoulder', 'Ombro cm', 'number', latest.shoulder, '0.1')}
-        ${measureInput('chest', 'Peito cm', 'number', latest.chest, '0.1')}
-        ${measureInput('armL', 'Braço esquerdo', 'number', latest.armL, '0.1')}
-        ${measureInput('armR', 'Braço direito', 'number', latest.armR, '0.1')}
-        ${measureInput('forearmL', 'Antebraço esquerdo', 'number', latest.forearmL, '0.1')}
-        ${measureInput('forearmR', 'Antebraço direito', 'number', latest.forearmR, '0.1')}
-        ${measureInput('abdomenUpper', 'Abdômen superior', 'number', latest.abdomenUpper, '0.1')}
-        ${measureInput('abdomenLower', 'Abdômen inferior', 'number', latest.abdomenLower, '0.1')}
-        ${measureInput('thighL', 'Coxa esquerda', 'number', latest.thighL, '0.1')}
-        ${measureInput('thighR', 'Coxa direita', 'number', latest.thighR, '0.1')}
-        ${measureInput('calfL', 'Panturrilha esquerda', 'number', latest.calfL, '0.1')}
-        ${measureInput('calfR', 'Panturrilha direita', 'number', latest.calfR, '0.1')}
-        ${measureInput('hip', 'Quadril cm', 'number', latest.hip, '0.1')}
-      </div>
-      <div class="btn-row" style="margin-top:14px"><button class="btn primary" type="submit">Salvar medidas</button></div>
-    </form>
-
-    <section class="section-title">
-      <div><h2>Histórico</h2><p>Últimos registros de evolução.</p></div>
-    </section>
-    <div class="list">
-      ${state.bodyMeasures.length ? [...state.bodyMeasures].reverse().map(measureItem).join('') : '<div class="empty">Sem medidas registradas.</div>'}
-    </div>
-  `;
-}
-
-function measureInput(name, label, type, value = '', step = '') {
-  return `<div><label>${label}</label><input class="input" name="${name}" type="${type}" ${step ? `step="${step}"` : ''} value="${escapeHtml(value ?? '')}"></div>`;
-}
-
-function signed(value, unit) {
-  const n = Number(value);
-  const cls = n <= 0 ? '↓' : '↑';
-  return `${cls} ${Math.abs(n)} ${unit}`;
-}
-
-function measureItem(item) {
-  return `
-    <div class="list-item">
-      <div>
-        <strong>${escapeHtml(item.date)} • ${item.weight || '-'} kg</strong>
-        <small>Cintura ${item.waist || '-'} cm • Peito ${item.chest || '-'} cm • Braço D ${item.armR || '-'} cm</small>
-      </div>
-      <button class="btn ghost" data-action="delete-measure" data-date="${item.date}">Excluir</button>
-    </div>
-  `;
-}
-
-function renderWater() {
-  const water = getWaterDay();
-  const goal = state.settings.waterGoalMl;
-  const percent = Math.min(100, Math.round((water.totalMl / goal) * 100));
-  const remaining = Math.max(0, goal - water.totalMl);
-  $app.innerHTML = `
-    <section class="water-big">
-      <div>
-        <div class="drop">💧</div>
-        <div class="number">${formatMl(water.totalMl)}</div>
-        <div class="goal">Meta: ${formatMl(goal)} • faltam ${formatMl(remaining)}</div>
-      </div>
-    </section>
-    <div class="card" style="margin-top:12px">
-      <div class="progress-bar"><div class="progress-fill" style="width:${percent}%"></div></div>
-      <div class="pill-row"><span class="pill green">${percent}% da meta</span><span class="pill blue">${water.entries.length} registros hoje</span></div>
-    </div>
-
-    <section class="section-title">
-      <div><h2>Adicionar água</h2><p>Copo, garrafa ou valor personalizado.</p></div>
-    </section>
-    <div class="grid two">
-      <button class="btn blue" data-action="add-water" data-ml="${state.settings.glassMl}">+ 1 copo (${state.settings.glassMl} ml)</button>
-      <button class="btn blue" data-action="add-water" data-ml="${state.settings.bottleMl}">+ 1 garrafa (${state.settings.bottleMl} ml)</button>
-    </div>
-    <form class="card" data-form="custom-water" style="margin-top:12px">
-      <div class="form-grid">
-        <div><label>Valor personalizado em ml</label><input class="input" name="ml" type="number" placeholder="Ex: 350"></div>
-        <div><label>Observação</label><input class="input" name="label" placeholder="Ex: garrafa azul"></div>
-      </div>
-      <div class="btn-row" style="margin-top:14px"><button class="btn primary" type="submit">Adicionar</button><button class="btn danger" type="button" data-action="clear-water-today">Zerar hoje</button></div>
-    </form>
-
-    <section class="section-title">
-      <div><h2>Personalizar copo/garrafa</h2><p>Coloque do seu jeito: 200 ml, 300 ml, 750 ml...</p></div>
-    </section>
-    <form class="card" data-form="water-settings">
-      <div class="form-grid three">
-        <div><label>Meta diária ml</label><input class="input" name="waterGoalMl" type="number" value="${state.settings.waterGoalMl}"></div>
-        <div><label>Copo ml</label><input class="input" name="glassMl" type="number" value="${state.settings.glassMl}"></div>
-        <div><label>Garrafa ml</label><input class="input" name="bottleMl" type="number" value="${state.settings.bottleMl}"></div>
-      </div>
-      <div class="btn-row" style="margin-top:14px"><button class="btn primary" type="submit">Salvar personalização</button></div>
-    </form>
-
-    <section class="section-title">
-      <div><h2>Registros de hoje</h2><p>Histórico do dia.</p></div>
-    </section>
-    <div class="list">
-      ${water.entries.length ? [...water.entries].reverse().map(entry => `
-        <div class="list-item"><div><strong>${formatMl(entry.ml)}</strong><small>${entry.time} • ${escapeHtml(entry.label || 'água')}</small></div><button class="btn ghost" data-action="delete-water" data-id="${entry.id}">Excluir</button></div>
-      `).join('') : '<div class="empty">Nenhum copo/garrafa registrado hoje.</div>'}
-    </div>
-  `;
-}
-
-function renderProgress() {
-  const volumeByMuscle = getVolumeByMuscle();
-  const recentMeasures = state.bodyMeasures.slice(-8);
-  const weightChart = chartBars(recentMeasures, 'weight', 'kg');
-  const waistChart = chartBars(recentMeasures, 'waist', 'cm');
-  const totalWorkouts = new Set(state.workoutLogs.map(l => `${l.date}_${l.workoutId}`)).size;
-  const totalRuns = state.runLogs.length;
-  const totalRunKm = state.runLogs.reduce((sum, r) => sum + Number(r.distanceKm || 0), 0).toFixed(2);
-
-  $app.innerHTML = `
-    <section class="hero">
-      <h2>Evolução</h2>
-      <p>O app junta shape, força, corrida, água e rotina. Aqui ficam seus PRs e gráficos.</p>
-      <div class="pill-row">
-        <span class="pill green">${totalWorkouts} treinos</span>
-        <span class="pill blue">${totalRuns} corridas</span>
-        <span class="pill orange">${totalRunKm} km</span>
-      </div>
-    </section>
-
-    <section class="grid two" style="margin-top:14px">
-      <div class="card"><h3>Peso</h3>${weightChart}</div>
-      <div class="card"><h3>Cintura</h3>${waistChart}</div>
-    </section>
-
-    <section class="section-title">
-      <div><h2>Volume por músculo</h2><p>Contagem dos exercícios registrados por grupo muscular.</p></div>
-    </section>
-    <div class="grid two">
-      ${Object.entries(muscleGroups).map(([key, name]) => `
-        <div class="card compact stat"><span class="label">${name}</span><span class="value">${volumeByMuscle[key] || 0}</span><span class="sub">registros</span></div>
-      `).join('')}
-    </div>
-
-    <section class="section-title">
-      <div><h2>Configurações e backup</h2><p>Notificações, exportação e reset.</p></div>
-    </section>
-    <form class="card" data-form="settings">
-      <div class="form-grid">
-        <div><label>Horário alvo para dormir</label><input class="input" name="sleepTarget" value="${escapeHtml(state.profile.sleepTarget)}"></div>
-        <div><label>Dose creatina</label><input class="input" name="creatineDose" value="${escapeHtml(state.settings.creatineDose)}"></div>
-      </div>
-      <label class="check ${state.settings.remindersEnabled ? 'done' : ''}" style="margin-top:12px"><input type="checkbox" name="remindersEnabled" ${state.settings.remindersEnabled ? 'checked' : ''}> Ativar lembretes enquanto o app estiver aberto</label>
-      <div class="btn-row" style="margin-top:14px">
-        <button class="btn primary" type="submit">Salvar configurações</button>
-        <button class="btn blue" type="button" data-action="request-notifications">Permitir notificações</button>
-      </div>
-    </form>
-
-    <div class="grid two" style="margin-top:12px">
-      <button class="btn ghost" data-action="export-json">Exportar backup JSON</button>
-      <button class="btn ghost" data-action="export-csv">Exportar treinos CSV</button>
-      <button class="btn danger" data-action="reset-app">Resetar app</button>
-    </div>
-  `;
-}
-
-function getVolumeByMuscle() {
-  const result = {};
-  state.workoutLogs.forEach(log => {
-    const exercise = findExerciseById(log.exerciseId, log.workoutId);
-    if (!exercise) return;
-    exercise.muscles.forEach(m => result[m] = (result[m] || 0) + 1);
-  });
-  return result;
-}
-
-function chartBars(items, key, unit) {
-  const valid = items.filter(item => Number(item[key]));
-  if (!valid.length) return '<div class="empty">Sem dados.</div>';
-  const values = valid.map(item => Number(item[key]));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(1, max - min);
-  return `<div class="chart">${valid.map(item => {
-    const value = Number(item[key]);
-    const h = 25 + ((value - min) / range) * 70;
-    return `<div class="bar" style="height:${h}%" title="${item.date}: ${value}${unit}"><span>${value}</span></div>`;
-  }).join('')}</div>`;
-}
-
-function openLogExerciseModal(workoutId, exerciseId, slotId = '') {
-  const workout = getWorkout(workoutId);
-  const exercise = findExerciseInWorkout(workoutId, exerciseId, slotId);
-  if (!workout || !exercise) return;
-  const latest = getLatestExerciseLog(exercise.id);
-  const rows = inferSetCount(exercise.target);
-  const latestRows = latest?.sets || [];
-
-  const modal = document.createElement('div');
-  modal.className = 'modal-backdrop';
-  modal.innerHTML = `
-    <div class="modal">
-      <div class="modal-head">
-        <div><h3>${escapeHtml(exercise.name)}</h3><p style="margin:4px 0 0;color:var(--muted)">${escapeHtml(exercise.target)} • ${escapeHtml(exercise.note)}</p></div>
-        <button class="icon-btn" data-modal-close>×</button>
-      </div>
-      <div class="modal-muscle-preview">${muscleFigure(exercise.muscles, exercise.name)}<div><h4>Músculo alvo</h4><div class="pill-row">${exercise.muscles.map(m => `<span class="pill blue">${muscleGroups[m]}</span>`).join('')}</div></div></div>
-      <form data-form="exercise-log" data-workout="${workout.id}" data-exercise="${exercise.id}" data-slot="${exercise.slotId}">
-        <div class="form-grid three">
-          <div><label>Data</label><input class="input" name="date" type="date" value="${todayISO()}"></div>
-          <div><label>Dor lombar/perna 0-10</label><input class="input" name="painGlobal" type="number" min="0" max="10" value="0"></div>
-          <div><label>Descanso usado</label><input class="input" name="rest" placeholder="Ex: 90s"></div>
-        </div>
-        <table class="sets-table">
-          <thead><tr><th>Série</th><th>Kg</th><th>Reps/Tempo</th><th>RIR</th><th>Dor</th></tr></thead>
-          <tbody>
-            ${Array.from({ length: rows }, (_, i) => `
-              <tr>
-                <td>${i + 1}</td>
-                <td><input class="input" name="weight_${i}" type="number" step="0.5" value="${latestRows[i]?.weight || ''}"></td>
-                <td><input class="input" name="reps_${i}" value="${latestRows[i]?.reps || ''}" placeholder="10 ou 30s"></td>
-                <td><input class="input" name="rir_${i}" type="number" step="1" value="${latestRows[i]?.rir || ''}" placeholder="2"></td>
-                <td><input class="input" name="pain_${i}" type="number" min="0" max="10" value="${latestRows[i]?.pain || 0}"></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <div style="margin-top:12px"><label>Observação</label><textarea name="notes" placeholder="Como foi? Carga leve/pesada? Dor? Forma?"></textarea></div>
-        <div class="btn-row" style="margin-top:14px">
-          <button class="btn primary" type="submit">Salvar exercício</button>
-          <button class="btn ghost" type="button" data-modal-close>Cancelar</button>
-        </div>
-      </form>
-    </div>
-  `;
-  document.body.appendChild(modal);
-}
-
-function openReplaceExerciseModal(workoutId, slotId) {
-  const workout = getWorkout(workoutId);
-  const original = workout?.exercises.find(e => e.id === slotId);
-  if (!workout || !original) return;
-  const current = findExerciseInWorkout(workoutId, '', slotId) || original;
-  const modal = document.createElement('div');
-  modal.className = 'modal-backdrop';
-  modal.innerHTML = `
-    <div class="modal">
-      <div class="modal-head">
-        <div>
-          <h3>Substituir exercício</h3>
-          <p style="margin:4px 0 0;color:var(--muted)">Atual: ${escapeHtml(current.name)} • original: ${escapeHtml(original.name)}</p>
-        </div>
-        <button class="icon-btn" data-modal-close>×</button>
-      </div>
-      <div class="modal-muscle-preview">
-        ${muscleFigure(current.muscles, current.name)}
-        <div>
-          <h4>Escolha por músculo</h4>
-          <p>Funciona igual uma biblioteca: pesquisa, filtra por músculo e troca mantendo seu treino salvo.</p>
-        </div>
-      </div>
-      <div class="form-grid">
-        <div><label>Pesquisar exercício</label><input class="input" data-replace-search placeholder="Ex: supino, remada, panturrilha"></div>
-        <div><label>Músculo</label><select data-replace-muscle>
-          <option value="">Todos</option>
-          ${Object.entries(muscleGroups).map(([key, name]) => `<option value="${key}" ${current.muscles.includes(key) ? 'selected' : ''}>${name}</option>`).join('')}
-        </select></div>
-      </div>
-      <div class="btn-row" style="margin-top:12px">
-        <button class="btn ghost" data-reset-replacement>Voltar para original</button>
-      </div>
-      <div class="library-list" data-replace-list></div>
-    </div>
-  `;
-
-  const search = modal.querySelector('[data-replace-search]');
-  const muscle = modal.querySelector('[data-replace-muscle]');
-  const list = modal.querySelector('[data-replace-list]');
-
-  function renderChoices() {
-    const q = normalize(search.value);
-    const selectedMuscle = muscle.value;
-    const choices = allLibraryExercises().filter(item => {
-      const matchesQuery = !q || normalize(`${item.name} ${item.equipment} ${item.note}`).includes(q);
-      const matchesMuscle = !selectedMuscle || item.muscles.includes(selectedMuscle);
-      return matchesQuery && matchesMuscle;
-    });
-    list.innerHTML = choices.length ? choices.map(item => `
-      <button class="library-item" data-choose-exercise="${item.id}">
-        <div class="library-figure">${muscleFigure(item.muscles, item.name)}</div>
-        <div>
-          <strong>${escapeHtml(item.name)}</strong>
-          <small>${escapeHtml(item.equipment || 'Alternativa')} • ${escapeHtml(item.target || '')}</small>
-          <div class="pill-row">${item.muscles.map(m => `<span class="pill blue">${muscleGroups[m]}</span>`).join('')}</div>
-        </div>
-      </button>
-    `).join('') : '<div class="empty">Nenhum exercício encontrado com esse filtro.</div>';
-  }
-
-  function chooseExercise(libraryId) {
-    const chosen = allLibraryExercises().find(item => item.id === libraryId);
-    if (!chosen) return;
-    state.exerciseOverrides[overrideKey(workoutId, slotId)] = { ...chosen };
-    saveState();
-    modal.remove();
-    showToast(`Exercício substituído por ${chosen.name}.`);
-    render();
-  }
-
-  search.addEventListener('input', renderChoices);
-  muscle.addEventListener('change', renderChoices);
-  modal.addEventListener('click', event => {
-    const chosen = event.target.closest('[data-choose-exercise]');
-    if (chosen) chooseExercise(chosen.dataset.chooseExercise);
-    if (event.target.closest('[data-reset-replacement]')) {
-      delete state.exerciseOverrides[overrideKey(workoutId, slotId)];
-      saveState();
-      modal.remove();
-      showToast('Exercício original restaurado.');
-      render();
-    }
-  });
-  document.body.appendChild(modal);
-  renderChoices();
-}
-
-function normalize(text) {
-  return String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function inferSetCount(target) {
-  const match = String(target).match(/(\d+)x/i);
-  if (match) return Math.min(6, Math.max(1, Number(match[1])));
-  if (target.includes('6x')) return 6;
-  if (target.includes('2–3')) return 3;
-  return 3;
-}
-
-function saveExerciseLog(form) {
-  const workoutId = form.dataset.workout;
-  const exerciseId = form.dataset.exercise;
-  const sets = [];
-  const maxRows = 8;
-  for (let i = 0; i < maxRows; i++) {
-    if (!(form[`weight_${i}`] || form[`reps_${i}`])) continue;
-    const weight = form[`weight_${i}`]?.value || '';
-    const reps = form[`reps_${i}`]?.value || '';
-    const rir = form[`rir_${i}`]?.value || '';
-    const pain = form[`pain_${i}`]?.value || '0';
-    if (weight || reps || rir) sets.push({ weight, reps, rir, pain });
-  }
-  if (!sets.length) {
-    showToast('Registra pelo menos uma série/repetição, Isacc.');
-    return;
-  }
-  state.workoutLogs.push({
-    id: uid(),
-    date: form.date.value || todayISO(),
-    time: todayTime(),
-    workoutId,
-    exerciseId,
-    rest: form.rest.value || '',
-    painGlobal: form.painGlobal.value || '0',
-    notes: form.notes.value || '',
-    sets
-  });
-  getChecklist(form.date.value || todayISO()).workout = true;
-  saveState();
-  document.querySelector('.modal-backdrop')?.remove();
-  showToast('Exercício salvo. Histórico criado!');
-  render();
-}
-
-function addWater(ml, label = '') {
-  ml = Number(ml);
-  if (!ml || ml <= 0) return showToast('Informe uma quantidade válida de água.');
-  const day = getWaterDay();
-  day.totalMl += ml;
-  day.entries.push({ id: uid(), ml, label: label || `${ml} ml`, time: todayTime() });
-  if (day.totalMl >= state.settings.waterGoalMl) getChecklist().water = true;
-  saveState();
-  showToast(`+ ${formatMl(ml)} registrado.`);
-  render();
-}
-
-function exportFile(filename, content, mime = 'text/plain') {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function exportCsv() {
-  const header = ['date', 'time', 'workoutId', 'exerciseId', 'set', 'weight', 'reps', 'rir', 'pain', 'painGlobal', 'notes'];
-  const rows = [header.join(';')];
-  state.workoutLogs.forEach(log => {
-    log.sets.forEach((s, index) => rows.push([
-      log.date, log.time, log.workoutId, log.exerciseId, index + 1, s.weight, s.reps, s.rir, s.pain, log.painGlobal, String(log.notes || '').replaceAll(';', ',')
-    ].map(v => `"${String(v ?? '').replaceAll('"', '""')}"`).join(';')));
-  });
-  exportFile(`isacc-hybrid-treinos-${todayISO()}.csv`, rows.join('\n'), 'text/csv;charset=utf-8');
-}
-
-function requestNotifications() {
-  if (!('Notification' in window)) return showToast('Seu navegador não suporta notificações.');
-  Notification.requestPermission().then(permission => {
-    showToast(permission === 'granted' ? 'Notificações liberadas.' : 'Notificações não liberadas.');
-  });
-}
-
-function sendReminder(title, body) {
-  showToast(`${title}: ${body}`);
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification(title, { body, icon: undefined });
-  }
-}
-
-function reminderLoop() {
-  if (!state.settings.remindersEnabled) return;
-  const now = new Date();
-  const hhmm = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const date = todayISO();
-  state.settings.walkReminderTimes.forEach(time => {
-    const key = `${date}_${time}`;
-    if (hhmm === time && !lastReminderSent[key]) {
-      lastReminderSent[key] = true;
-      sendReminder('Levanta, Isacc', 'Anda 3–5 minutos e volta. Seu corpo não foi feito para ficar travado na cadeira.');
-    }
-  });
-  if (hhmm === '17:45' && !lastReminderSent[`${date}_pretreino`]) {
-    lastReminderSent[`${date}_pretreino`] = true;
-    sendReminder('Pré-treino', 'Come algo planejado e não senta no sofá. Academia antes do celular.');
-  }
-  if (hhmm === '22:00' && !lastReminderSent[`${date}_sono`]) {
-    lastReminderSent[`${date}_sono`] = true;
-    sendReminder('Sono', 'Começa a desligar. Shape também cresce dormindo.');
-  }
-}
-
-setInterval(reminderLoop, 30 * 1000);
-
-// Eventos globais
-
-document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => setRoute(btn.dataset.route)));
-
-$app.addEventListener('click', event => {
-  const routeBtn = event.target.closest('[data-route-jump]');
-  if (routeBtn) return setRoute(routeBtn.dataset.routeJump);
-
-  const action = event.target.closest('[data-action]');
-  if (!action) return;
-  const type = action.dataset.action;
-
-  if (type === 'open-workout') setRoute(`workout:${action.dataset.id}`);
-  if (type === 'log-exercise') openLogExerciseModal(action.dataset.workout, action.dataset.exercise, action.dataset.slot);
-  if (type === 'replace-exercise') openReplaceExerciseModal(action.dataset.workout, action.dataset.slot);
-  if (type === 'reset-replacement') {
-    delete state.exerciseOverrides[overrideKey(action.dataset.workout, action.dataset.slot)];
-    saveState();
-    showToast('Exercício original restaurado.');
-    render();
-  }
-  if (type === 'finish-workout') {
-    getChecklist().workout = true;
-    saveState();
-    showToast('Treino marcado como feito. Boa, Isacc!');
-    render();
-  }
-  if (type === 'add-water') addWater(action.dataset.ml, action.textContent.trim());
-  if (type === 'clear-water-today') {
-    if (confirm('Zerar água registrada hoje?')) {
-      state.water[todayISO()] = { totalMl: 0, entries: [] };
-      saveState(); render();
-    }
-  }
-  if (type === 'delete-water') {
-    const day = getWaterDay();
-    const item = day.entries.find(e => e.id === action.dataset.id);
-    if (item) day.totalMl = Math.max(0, day.totalMl - Number(item.ml || 0));
-    day.entries = day.entries.filter(e => e.id !== action.dataset.id);
-    saveState(); render();
-  }
-  if (type === 'delete-run') {
-    state.runLogs = state.runLogs.filter(r => r.id !== action.dataset.id);
-    saveState(); render();
-  }
-  if (type === 'delete-measure') {
-    state.bodyMeasures = state.bodyMeasures.filter(m => m.date !== action.dataset.date);
-    saveState(); render();
-  }
-  if (type === 'request-notifications') requestNotifications();
-  if (type === 'export-json') exportFile(`isacc-hybrid-backup-${todayISO()}.json`, JSON.stringify(state, null, 2), 'application/json');
-  if (type === 'export-csv') exportCsv();
-  if (type === 'reset-app') {
-    if (confirm('Resetar tudo? Isso apaga registros locais.')) {
-      localStorage.removeItem(STORE_KEY);
-      state = structuredClone(defaultState);
-      saveState();
-      showToast('App resetado.');
-      render();
-    }
-  }
-});
-
-$app.addEventListener('change', event => {
-  const check = event.target.closest('[data-action="toggle-check"]');
-  if (!check) return;
-  const checklist = getChecklist();
-  checklist[check.dataset.key] = check.checked;
-  saveState();
-  render();
-});
-
-$app.addEventListener('submit', event => {
-  event.preventDefault();
-  const form = event.target;
-  const formType = form.dataset.form;
-
-  if (formType === 'custom-water') {
-    addWater(form.ml.value, form.label.value);
-  }
-
-  if (formType === 'water-settings') {
-    state.settings.waterGoalMl = Number(form.waterGoalMl.value) || 2500;
-    state.settings.glassMl = Number(form.glassMl.value) || 250;
-    state.settings.bottleMl = Number(form.bottleMl.value) || 500;
-    saveState(); showToast('Água personalizada salva.'); render();
-  }
-
-  if (formType === 'run') {
-    const distanceKm = Number(form.distanceKm.value);
-    const timeMin = parseTimeToMinutes(form.time.value);
-    if (!distanceKm || !timeMin) return showToast('Informe distância e tempo.');
-    state.runLogs.push({
-      id: uid(),
-      date: form.date.value || todayISO(),
-      type: form.type.value,
-      distanceKm,
-      time: form.time.value,
-      timeMin,
-      pace: calcPace(distanceKm, timeMin),
-      location: form.location.value,
-      feeling: form.feeling.value,
-      notes: form.notes.value
-    });
-    saveState(); showToast('Corrida salva.'); render();
-  }
-
-  if (formType === 'measures') {
-    const data = Object.fromEntries(new FormData(form).entries());
-    Object.keys(data).forEach(key => {
-      if (key !== 'date') data[key] = data[key] === '' ? '' : Number(data[key]);
-    });
-    state.bodyMeasures = state.bodyMeasures.filter(m => m.date !== data.date);
-    state.bodyMeasures.push(data);
-    state.bodyMeasures.sort((a, b) => a.date.localeCompare(b.date));
-    if (data.weight) state.profile.weight = data.weight;
-    saveState(); showToast('Medidas salvas.'); render();
-  }
-
-  if (formType === 'settings') {
-    state.profile.sleepTarget = form.sleepTarget.value || '22:30';
-    state.settings.creatineDose = form.creatineDose.value || '3–5g/dia';
-    state.settings.remindersEnabled = Boolean(form.remindersEnabled.checked);
-    saveState(); showToast('Configurações salvas.'); render();
-  }
-});
-
-document.body.addEventListener('click', event => {
-  if (event.target.matches('[data-modal-close]') || event.target.classList.contains('modal-backdrop')) {
-    event.target.closest('.modal-backdrop')?.remove();
-  }
-});
-
-document.body.addEventListener('submit', event => {
-  const form = event.target;
-  if (form.dataset.form === 'exercise-log') {
-    event.preventDefault();
-    saveExerciseLog(form);
-  }
-});
-
-// PWA install
-window.addEventListener('beforeinstallprompt', event => {
-  event.preventDefault();
-  deferredInstallPrompt = event;
-  const btn = document.querySelector('#installBtn');
-  btn.hidden = false;
-});
-
-document.querySelector('#installBtn').addEventListener('click', async () => {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
-  document.querySelector('#installBtn').hidden = true;
-});
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(console.error));
-}
-
+function partColor(group, muscles){ return muscles.includes(group)?'#4ea2ff':'#d7dde7'; }
+function pushSVG(muscles,size,cls){ return `
+<svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
+  <g class="anim-float">
+    <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
+    <g>
+      <rect x="58" y="136" width="104" height="10" rx="5" fill="#c5ced8"></rect>
+      <rect x="52" y="128" width="12" height="26" rx="4" fill="#a7b0bb"></rect>
+      <rect x="156" y="128" width="12" height="26" rx="4" fill="#a7b0bb"></rect>
+    </g>
+    <g class="body-group">
+      <circle cx="110" cy="78" r="14" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
+      <rect x="90" y="94" width="40" height="44" rx="14" fill="#eef2f7" stroke="#c0c9d3"></rect>
+      <rect x="91" y="98" width="18" height="16" rx="8" fill="${partColor('peito',muscles)}"></rect>
+      <rect x="111" y="98" width="18" height="16" rx="8" fill="${partColor('peito',muscles)}"></rect>
+      <rect x="77" y="92" width="13" height="18" rx="6" fill="${partColor('ombros',muscles)}"></rect>
+      <rect x="130" y="92" width="13" height="18" rx="6" fill="${partColor('ombros',muscles)}"></rect>
+      <g class="arm-l"><path class="person" d="M88 103 L67 124 L53 138"/><circle class="joint" cx="67" cy="124" r="4"/><rect x="58" y="118" width="12" height="18" rx="6" fill="${partColor('triceps',muscles)}"></rect></g>
+      <g class="arm-r"><path class="person" d="M132 103 L153 124 L167 138"/><circle class="joint" cx="153" cy="124" r="4"/><rect x="150" y="118" width="12" height="18" rx="6" fill="${partColor('triceps',muscles)}"></rect></g>
+      <path class="person" d="M100 138 L95 174 L90 198"/><path class="person" d="M120 138 L125 174 L130 198"/>
+      <rect x="92" y="140" width="16" height="30" rx="8" fill="${partColor('quadriceps',muscles)}"></rect>
+      <rect x="112" y="140" width="16" height="30" rx="8" fill="${partColor('quadriceps',muscles)}"></rect>
+    </g>
+  </g>
+</svg>`; }
+function rowSVG(muscles,size,cls){ return `
+<svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
+ <ellipse cx="110" cy="196" rx="78" ry="10" fill="#ecf0f5"></ellipse>
+ <rect x="42" y="132" width="80" height="14" rx="7" fill="#c6ced8"></rect>
+ <line x1="124" y1="138" x2="185" y2="138" class="equip"/>
+ <g class="body-group">
+  <circle cx="78" cy="90" r="14" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
+  <path class="person" d="M90 98 L116 114 L129 138"/>
+  <rect x="94" y="106" width="26" height="18" rx="8" fill="${partColor('costas',muscles)}"></rect>
+  <g class="arm-l"><path class="person" d="M111 111 L144 121 L158 136"/><rect x="128" y="115" width="14" height="16" rx="6" fill="${partColor('biceps',muscles)}"></rect></g>
+  <g class="arm-r"><path class="person" d="M104 118 L137 130 L151 145"/><rect x="123" y="125" width="14" height="16" rx="6" fill="${partColor('biceps',muscles)}"></rect></g>
+  <path class="person" d="M69 104 L61 139 L48 176"/><path class="person" d="M92 115 L82 150 L96 191"/>
+ </g>
+</svg>`; }
+function latPullSVG(muscles,size,cls){ return `
+<svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
+ <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
+ <line x1="110" y1="30" x2="110" y2="165" class="equip"></line>
+ <line x1="70" y1="38" x2="150" y2="38" class="equip"></line>
+ <g class="body-group">
+   <circle cx="110" cy="76" r="14" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
+   <rect x="90" y="92" width="40" height="50" rx="14" fill="#eef2f7" stroke="#c0c9d3"></rect>
+   <rect x="90" y="95" width="40" height="20" rx="10" fill="${partColor('costas',muscles)}"></rect>
+   <g class="arm-l"><path class="person" d="M92 100 L78 75 L70 45"/><rect x="79" y="78" width="14" height="18" rx="6" fill="${partColor('biceps',muscles)}"></rect></g>
+   <g class="arm-r"><path class="person" d="M128 100 L142 75 L150 45"/><rect x="127" y="78" width="14" height="18" rx="6" fill="${partColor('biceps',muscles)}"></rect></g>
+   <path class="person" d="M99 142 L95 177 L92 198"/><path class="person" d="M121 142 L125 177 L128 198"/>
+ </g>
+</svg>`; }
+function lowerSVG(muscles,size,cls){ return `
+<svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
+ <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
+ <g class="body-group">
+  <circle cx="110" cy="62" r="14" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
+  <rect x="92" y="78" width="36" height="42" rx="14" fill="#eef2f7" stroke="#c0c9d3"></rect>
+  <rect x="93" y="110" width="34" height="18" rx="8" fill="${partColor('gluteos',muscles)}"></rect>
+  <path class="person" d="M92 87 L77 111"/><path class="person" d="M128 87 L143 111"/>
+  <path class="person" d="M101 120 L88 154 L82 193"/><path class="person" d="M119 120 L132 154 L138 193"/>
+  <rect x="88" y="125" width="16" height="35" rx="8" fill="${partColor('quadriceps',muscles)}"></rect>
+  <rect x="116" y="125" width="16" height="35" rx="8" fill="${partColor('quadriceps',muscles)}"></rect>
+  <rect x="85" y="158" width="14" height="25" rx="8" fill="${partColor('panturrilha',muscles)}"></rect>
+  <rect x="121" y="158" width="14" height="25" rx="8" fill="${partColor('panturrilha',muscles)}"></rect>
+ </g>
+</svg>`; }
+function plankSVG(muscles,size,cls){ return `
+<svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
+ <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
+ <g class="body-group">
+   <circle cx="68" cy="122" r="11" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
+   <path class="person" d="M79 126 L118 135 L162 142"/>
+   <rect x="90" y="128" width="25" height="12" rx="6" fill="${partColor('abdomen',muscles)}"></rect>
+   <rect x="115" y="132" width="24" height="12" rx="6" fill="${partColor('lombar',muscles)}"></rect>
+   <path class="person arm-l" d="M82 128 L60 152"/>
+   <path class="person arm-r" d="M89 129 L74 160"/>
+   <path class="person leg-l" d="M162 142 L180 161"/>
+   <path class="person leg-r" d="M153 141 L176 184"/>
+ </g>
+</svg>`; }
+function cardioSVG(muscles,size,cls){ return `
+<svg viewBox="0 0 220 220" width="${size}" height="${size}" class="${cls}">
+ <ellipse cx="110" cy="196" rx="70" ry="10" fill="#ecf0f5"></ellipse>
+ <g class="body-group">
+  <circle cx="110" cy="58" r="13" fill="#d9dee7" stroke="#b8c1cc" stroke-width="2"></circle>
+  <path class="person" d="M110 71 L110 111"/>
+  <rect x="95" y="78" width="30" height="18" rx="8" fill="${partColor('cardio',muscles)}"></rect>
+  <path class="person arm-l" d="M110 86 L88 104"/>
+  <path class="person arm-r" d="M110 86 L134 102"/>
+  <path class="person leg-l" d="M110 111 L87 149"/>
+  <path class="person leg-r" d="M110 111 L133 148"/>
+ </g>
+</svg>`; }
 render();

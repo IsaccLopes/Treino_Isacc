@@ -3,37 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0d1f16" />
+  <meta name="theme-color" content="#111315" />
   <title>Isacc Hybrid</title>
-  <link rel="stylesheet" href="styles.css" />
   <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="logo-mark" aria-label="Logo Isacc">🐊<span>IL</span></div>
-        <div>
-          <p class="eyebrow">Treino híbrido</p>
-          <h1>Isacc</h1>
-        </div>
-      </div>
-      <button class="icon-btn" id="installBtn" title="Instalar app" hidden>＋</button>
-    </header>
-
+    <header id="topbar" class="topbar"></header>
     <main id="app" class="content"></main>
-
-    <nav class="bottom-nav" aria-label="Navegação principal">
-      <button data-route="home" class="nav-btn active"><span>🏠</span>Hoje</button>
-      <button data-route="workouts" class="nav-btn"><span>🏋️</span>Treinos</button>
-      <button data-route="run" class="nav-btn"><span>🏃</span>Corrida</button>
-      <button data-route="measures" class="nav-btn"><span>📏</span>Medidas</button>
-      <button data-route="water" class="nav-btn"><span>💧</span>Água</button>
-      <button data-route="progress" class="nav-btn"><span>📈</span>Evolução</button>
+    <nav class="bottom-nav" aria-label="Menu principal">
+      <button class="nav-btn active" data-route="home"><span>🏠</span><small>Hoje</small></button>
+      <button class="nav-btn" data-route="workouts"><span>🏋️</span><small>Treinos</small></button>
+      <button class="nav-btn" data-route="library"><span>📚</span><small>Biblioteca</small></button>
+      <button class="nav-btn" data-route="water"><span>💧</span><small>Água</small></button>
+      <button class="nav-btn" data-route="progress"><span>📈</span><small>Evolução</small></button>
     </nav>
   </div>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="modalRoot"></div>
+  <div id="toast" class="toast"></div>
   <script src="app.js"></script>
 </body>
 </html>
